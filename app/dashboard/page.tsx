@@ -194,31 +194,38 @@ export default function Home() {
 
       /* ZAPIS PROJEKTU */
 
-      if (email) {
+      if (
+        email &&
+        data.generatedImage
+      ) {
 
-        await supabase
+        try {
 
-          .from("projects")
+          await supabase
 
-          .insert([
+            .from("projects")
 
-            {
-              user_email:
-                email,
+            .insert([
 
-              project_name:
-                "Projekt kuchni",
+              {
+                user_email:
+                  email,
 
-              room_type:
-                "kuchnia",
+                prompt:
+                  message,
 
-              conversation:
-                updatedChat,
+                image_url:
+                  data.generatedImage,
+              },
+            ]);
 
-              generated_image:
-                data.generatedImage,
-            },
-          ]);
+        } catch (err) {
+
+          console.log(
+            "Błąd zapisu projektu",
+            err
+          );
+        }
       }
 
       setMessage("");
