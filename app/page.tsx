@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -29,30 +30,39 @@ export default function Home() {
   const [email, setEmail] =
     useState("");
 
+  /* STABILNY AUTH */
+
   useEffect(() => {
 
     async function getUser() {
 
-      const {
-        data: { session },
-      } =
-        await supabase.auth.getSession();
+      try {
 
-      if (!session) {
+        const {
+          data,
+          error,
+        } =
+          await supabase.auth.getUser();
 
-        window.location.href =
-          "/login";
+        if (error) {
 
-        return;
-      }
+          console.log(error);
 
-      if (
-        session.user.email
-      ) {
+          return;
+        }
 
-        setEmail(
-          session.user.email
-        );
+        if (
+          data?.user?.email
+        ) {
+
+          setEmail(
+            data.user.email
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
       }
     }
 
@@ -62,10 +72,17 @@ export default function Home() {
 
   async function logout() {
 
-    await supabase.auth.signOut();
+    try {
 
-    window.location.href =
-      "/login";
+      await supabase.auth.signOut();
+
+      window.location.href =
+        "/login";
+
+    } catch (err) {
+
+      console.log(err);
+    }
   }
 
   async function sendMessage() {
@@ -175,29 +192,34 @@ export default function Home() {
         updatedChat
       );
 
-      await supabase
+      /* ZAPIS PROJEKTU */
 
-        .from("projects")
+      if (email) {
 
-        .insert([
+        await supabase
 
-          {
-            user_email:
-              email,
+          .from("projects")
 
-            project_name:
-              "Projekt kuchni",
+          .insert([
 
-            room_type:
-              "kuchnia",
+            {
+              user_email:
+                email,
 
-            conversation:
-              updatedChat,
+              project_name:
+                "Projekt kuchni",
 
-            generated_image:
-              data.generatedImage,
-          },
-        ]);
+              room_type:
+                "kuchnia",
+
+              conversation:
+                updatedChat,
+
+              generated_image:
+                data.generatedImage,
+            },
+          ]);
+      }
 
       setMessage("");
       setImage(null);
@@ -222,36 +244,115 @@ export default function Home() {
       min-h-screen
       bg-black
       text-white
+      relative
+      overflow-hidden
     ">
 
+      {/* BACKGROUND */}
+
+      <div
+        className="
+          absolute
+          inset-0
+          opacity-10
+          bg-cover
+          bg-center
+          bg-no-repeat
+        "
+        style={{
+          backgroundImage:
+            "url('/bg.jpg')",
+        }}
+      />
+
+      {/* GLOW */}
+
       <div className="
-        max-w-6xl
+        absolute
+        top-0
+        left-0
+        w-[700px]
+        h-[700px]
+        bg-blue-600/20
+        blur-[180px]
+        rounded-full
+      " />
+
+      <div className="
+        absolute
+        bottom-0
+        right-0
+        w-[600px]
+        h-[600px]
+        bg-purple-600/20
+        blur-[180px]
+        rounded-full
+      " />
+
+      <div className="
+        absolute
+        inset-0
+        bg-gradient-to-br
+        from-black
+        via-black/90
+        to-blue-950/40
+      " />
+
+      <div className="
+        relative
+        z-10
+        max-w-7xl
         mx-auto
-        p-8
+        p-6
+        lg:p-10
       ">
+
+        {/* TOPBAR */}
 
         <div className="
           flex
-          justify-between
-          items-center
+          flex-col
+          lg:flex-row
+          lg:items-center
+          lg:justify-between
+          gap-6
           mb-10
         ">
 
           <div>
 
+            <Image
+              src="/logo.png"
+              alt="DreamS AI"
+              width={220}
+              height={80}
+              priority
+              style={{
+                width: "auto",
+                height: "auto",
+              }}
+              className="
+                mb-4
+              "
+            />
+
             <h1 className="
               text-5xl
+              lg:text-6xl
               font-bold
+              leading-tight
             ">
-              DreamS AI
+              DreamS AI Studio
             </h1>
 
             <p className="
               text-gray-400
-              mt-3
-              text-lg
+              text-xl
+              mt-4
+              max-w-2xl
             ">
-              Projektowanie mebli premium
+              Projektuj meble premium
+              z pomocą sztucznej inteligencji.
             </p>
 
           </div>
@@ -269,13 +370,15 @@ export default function Home() {
               }
 
               className="
-                bg-blue-600
-                hover:bg-blue-700
+                backdrop-blur-xl
+                bg-blue-600/80
+                hover:bg-blue-600
                 transition
                 px-6
-                py-3
+                py-4
                 rounded-2xl
                 font-bold
+                shadow-lg
               "
             >
               Moje projekty
@@ -286,13 +389,15 @@ export default function Home() {
               onClick={logout}
 
               className="
-                bg-red-600
-                hover:bg-red-700
+                backdrop-blur-xl
+                bg-red-600/80
+                hover:bg-red-600
                 transition
                 px-6
-                py-3
+                py-4
                 rounded-2xl
                 font-bold
+                shadow-lg
               "
             >
               Wyloguj
@@ -302,87 +407,98 @@ export default function Home() {
 
         </div>
 
+        {/* USER DATA */}
+
         <div className="
           grid
-          grid-cols-2
-          md:grid-cols-4
+          md:grid-cols-2
+          lg:grid-cols-4
           gap-4
-          mb-6
+          mb-10
         ">
 
           <input
             placeholder="Imię"
-
             value={name}
-
             onChange={(e) =>
               setName(
                 e.target.value
               )
             }
-
             className="
-              p-4
-              rounded-2xl
-              bg-gray-900
+              p-5
+              rounded-3xl
+              bg-white/5
+              border
+              border-white/10
+              backdrop-blur-xl
+              outline-none
+              focus:border-green-500
             "
           />
 
           <input
             placeholder="Telefon"
-
             value={phone}
-
             onChange={(e) =>
               setPhone(
                 e.target.value
               )
             }
-
             className="
-              p-4
-              rounded-2xl
-              bg-gray-900
+              p-5
+              rounded-3xl
+              bg-white/5
+              border
+              border-white/10
+              backdrop-blur-xl
+              outline-none
+              focus:border-green-500
             "
           />
 
           <input
             placeholder="Email"
-
             value={email}
-
             disabled
-
             className="
-              p-4
-              rounded-2xl
-              bg-gray-800
+              p-5
+              rounded-3xl
+              bg-white/5
+              border
+              border-white/10
+              backdrop-blur-xl
+              text-gray-400
             "
           />
 
           <input
             placeholder="Miejscowość"
-
             value={city}
-
             onChange={(e) =>
               setCity(
                 e.target.value
               )
             }
-
             className="
-              p-4
-              rounded-2xl
-              bg-gray-900
+              p-5
+              rounded-3xl
+              bg-white/5
+              border
+              border-white/10
+              backdrop-blur-xl
+              outline-none
+              focus:border-green-500
             "
           />
 
         </div>
 
+        {/* CHAT */}
+
         <div className="
           space-y-8
-          mb-8
+          mb-10
         ">
 
           {chat.map(
@@ -399,7 +515,10 @@ export default function Home() {
               >
 
                 <div className="
-                  bg-gray-900
+                  bg-white/5
+                  border
+                  border-white/10
+                  backdrop-blur-xl
                   p-6
                   rounded-3xl
                 ">
@@ -407,13 +526,14 @@ export default function Home() {
                   <div className="
                     text-sm
                     text-gray-400
-                    mb-2
+                    mb-3
                   ">
                     Klient
                   </div>
 
                   <div className="
                     whitespace-pre-wrap
+                    leading-8
                   ">
                     {item.user}
                   </div>
@@ -421,17 +541,23 @@ export default function Home() {
                 </div>
 
                 <div className="
-                  bg-blue-600
+                  bg-gradient-to-br
+                  from-blue-600/80
+                  to-indigo-900/80
+                  border
+                  border-white/10
+                  backdrop-blur-xl
                   p-6
                   rounded-3xl
+                  shadow-2xl
                 ">
 
                   <div className="
                     text-sm
                     text-blue-100
-                    mb-2
+                    mb-3
                   ">
-                    AI Projektant
+                    DreamS AI
                   </div>
 
                   <div className="
@@ -443,16 +569,21 @@ export default function Home() {
 
                   {item.generatedImage && (
 
-                    <img
-                      src={`data:image/png;base64,${item.generatedImage}`}
-                      alt="wizualizacja"
+                    <div className="
+                      mt-8
+                    ">
 
-                      className="
-                        mt-6
-                        rounded-2xl
-                        w-full
-                      "
-                    />
+                      <img
+                        src={`data:image/png;base64,${item.generatedImage}`}
+                        alt="wizualizacja"
+                        className="
+                          rounded-3xl
+                          w-full
+                          shadow-2xl
+                        "
+                      />
+
+                    </div>
 
                   )}
 
@@ -465,9 +596,12 @@ export default function Home() {
           {loading && (
 
             <div className="
-              bg-gray-900
+              bg-white/5
+              border
+              border-white/10
+              backdrop-blur-xl
               rounded-3xl
-              p-10
+              p-12
               flex
               flex-col
               items-center
@@ -476,8 +610,8 @@ export default function Home() {
             ">
 
               <div className="
-                w-16
-                h-16
+                w-20
+                h-20
                 border-4
                 border-white
                 border-t-transparent
@@ -486,14 +620,15 @@ export default function Home() {
               " />
 
               <div className="
-                text-2xl
-                font-semibold
+                text-3xl
+                font-bold
               ">
-                AI projektuje kuchnię...
+                DreamS AI pracuje...
               </div>
 
               <div className="
                 text-gray-400
+                text-lg
               ">
                 Tworzenie wizualizacji i wyceny
               </div>
@@ -504,101 +639,146 @@ export default function Home() {
 
         </div>
 
-        <div className="
-          mb-4
-        ">
-
-          <input
-            type="file"
-
-            onChange={(e) => {
-
-              const file =
-                e.target.files?.[0];
-
-              if (!file) return;
-
-              const reader =
-                new FileReader();
-
-              reader.onloadend = () => {
-
-                setImage(
-                  String(
-                    reader.result
-                  )
-                );
-              };
-
-              reader.readAsDataURL(
-                file
-              );
-            }}
-
-            className="
-              mb-4
-            "
-          />
-
-        </div>
+        {/* INPUT */}
 
         <div className="
-          flex
-          gap-4
+          bg-white/5
+          border
+          border-white/10
+          backdrop-blur-xl
+          rounded-[40px]
+          p-5
+          shadow-2xl
         ">
 
-          <input
-            value={message}
-
-            onChange={(e) =>
-              setMessage(
-                e.target.value
-              )
-            }
-
-            placeholder="
-              Opisz swoją kuchnię...
-            "
-
+          <label
             className="
-              flex-1
+              flex
+              items-center
+              justify-center
+              gap-3
               p-5
               rounded-3xl
-              bg-gray-900
-              text-white
-              outline-none
-            "
-          />
-
-          <button
-
-            onClick={sendMessage}
-
-            disabled={loading}
-
-            className={`
-              px-10
-              rounded-3xl
-              font-bold
+              border
+              border-dashed
+              border-white/20
+              bg-black/20
+              backdrop-blur-xl
+              cursor-pointer
+              hover:border-green-500
               transition
-
-              ${
-                loading
-
-                  ? "bg-gray-700 cursor-not-allowed"
-
-                  : "bg-white text-black hover:scale-105"
-              }
-            `}
+              text-gray-300
+              mb-5
+            "
           >
 
-            {
-              loading
-                ? "AI pracuje..."
-                : "Wyślij"
-            }
+            <span className="
+              text-2xl
+            ">
+              📎
+            </span>
 
-          </button>
+            <span>
+              {
+                image
+                  ? "Zdjęcie zostało dodane"
+                  : "Dodaj zdjęcie inspiracji lub projektu"
+              }
+            </span>
+
+            <input
+              type="file"
+              hidden
+
+              onChange={(e) => {
+
+                const file =
+                  e.target.files?.[0];
+
+                if (!file) return;
+
+                const reader =
+                  new FileReader();
+
+                reader.onloadend = () => {
+
+                  setImage(
+                    String(
+                      reader.result
+                    )
+                  );
+                };
+
+                reader.readAsDataURL(
+                  file
+                );
+              }}
+            />
+
+          </label>
+
+          <div className="
+            flex
+            flex-col
+            lg:flex-row
+            gap-4
+          ">
+
+            <input
+              value={message}
+              onChange={(e) =>
+                setMessage(
+                  e.target.value
+                )
+              }
+              placeholder="
+                Opisz swoją kuchnię premium...
+              "
+              className="
+                flex-1
+                p-6
+                rounded-3xl
+                bg-black/30
+                border
+                border-white/10
+                text-white
+                outline-none
+                text-lg
+              "
+            />
+
+            <button
+
+              onClick={sendMessage}
+
+              disabled={loading}
+
+              className={`
+                px-10
+                py-6
+                rounded-3xl
+                font-bold
+                text-lg
+                transition
+                shadow-2xl
+
+                ${
+                  loading
+                    ? "bg-gray-700 cursor-not-allowed"
+                    : "bg-white text-black hover:scale-105"
+                }
+              `}
+            >
+
+              {
+                loading
+                  ? "AI pracuje..."
+                  : "Wyślij"
+              }
+
+            </button>
+
+          </div>
 
         </div>
 

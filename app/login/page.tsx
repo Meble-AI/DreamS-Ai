@@ -15,65 +15,82 @@ export default function LoginPage() {
   const [loading, setLoading] =
     useState(false);
 
-  const [isRegister, setIsRegister] =
-    useState(false);
-
-  async function handleAuth() {
+  async function login() {
 
     try {
 
       setLoading(true);
 
-      if (isRegister) {
+      const { error } =
+        await supabase.auth.signInWithPassword({
 
-        const { error } =
-          await supabase.auth.signUp({
+          email,
+          password,
+        });
 
-            email,
-            password,
-          });
+      if (error) {
 
-        if (error) {
+        alert(error.message);
 
-          alert(error.message);
+        return;
+      }
 
-          return;
-        }
+      window.location.href = "/";
 
-        alert(
-          "Konto zostało utworzone 🙂"
+    } catch (err) {
+
+      console.log(err);
+
+      alert("Błąd logowania");
+
+    } finally {
+
+      setLoading(false);
+    }
+  }
+
+  async function resetPassword() {
+
+    if (!email) {
+
+      alert(
+        "Wpisz email do resetu hasła"
+      );
+
+      return;
+    }
+
+    try {
+
+      const { error } =
+        await supabase.auth.resetPasswordForEmail(
+
+          email,
+
+          {
+            redirectTo:
+              "http://localhost:3000/login",
+          }
         );
 
-      } else {
+      if (error) {
 
-        const { error } =
-          await supabase.auth.signInWithPassword({
+        alert(error.message);
 
-            email,
-            password,
-          });
-
-        if (error) {
-
-          alert(error.message);
-
-          return;
-        }
-
-        window.location.href = "/";
+        return;
       }
+
+      alert(
+        "Link do resetu hasła został wysłany 🙂"
+      );
 
     } catch (err) {
 
       console.log(err);
 
       alert(
-        "Wystąpił błąd logowania"
+        "Błąd resetowania hasła"
       );
-
-    } finally {
-
-      setLoading(false);
     }
   }
 
@@ -85,161 +102,208 @@ export default function LoginPage() {
       text-white
       grid
       lg:grid-cols-2
+      overflow-hidden
     ">
 
-      {/* LEFT SIDE */}
+      {/* LEWA STRONA */}
 
       <div className="
         relative
         hidden
         lg:flex
-        items-center
-        justify-center
-        overflow-hidden
+        flex-col
+        justify-between
+        p-16
       ">
 
-        <Image
-          src="/kitchen-login.jpg"
-          alt="Kitchen"
-          fill
-          priority
-          sizes="50vw"
+        {/* TŁO */}
+
+        <div
           className="
-            object-cover
-            opacity-50
+            absolute
+            inset-0
+            bg-cover
+            bg-center
+            opacity-60
           "
+          style={{
+            backgroundImage:
+              "url('/bg.jpg')",
+          }}
         />
 
         <div className="
           absolute
           inset-0
-          bg-gradient-to-br
-          from-black/80
-          via-black/40
-          to-black
+          bg-gradient-to-r
+          from-black
+          via-black/60
+          to-transparent
         " />
+
+        {/* CONTENT */}
 
         <div className="
           relative
           z-10
-          max-w-xl
-          p-12
         ">
 
           <Image
             src="/logo.png"
             alt="DreamS AI"
-            width={220}
-            height={80}
+            width={260}
+            height={90}
+            priority
             style={{
               width: "auto",
               height: "auto",
             }}
-            className="
-              mb-10
-            "
           />
 
-          <h1 className="
-            text-6xl
-            font-bold
-            leading-tight
-            mb-8
+          <div className="
+            mt-16
+            max-w-2xl
           ">
-            Projektuj
-            kuchnie premium
-            z pomocą AI
-          </h1>
 
-          <p className="
-            text-xl
-            text-gray-300
-            leading-relaxed
-          ">
-            Generuj wizualizacje,
-            wyceny i profesjonalne
-            projekty mebli na wymiar
-            w kilka minut.
-          </p>
+            <h1 className="
+              text-7xl
+              font-bold
+              leading-[1.05]
+              tracking-tight
+            ">
+              Projektuj
+              <br />
+              kuchnie
+              <br />
+              premium z
+              <br />
+              pomocą AI
+            </h1>
 
-          {/* FLOATING CHAT */}
+            <p className="
+              text-2xl
+              text-gray-300
+              mt-10
+              leading-relaxed
+            ">
+              Generuj wizualizacje,
+              wyceny i profesjonalne
+              projekty mebli na wymiar
+              w kilka minut.
+            </p>
+
+          </div>
+
+        </div>
+
+        {/* CHAT CARD */}
+
+        <div className="
+          relative
+          z-10
+          max-w-xl
+          bg-white/10
+          border
+          border-white/10
+          backdrop-blur-2xl
+          rounded-[35px]
+          p-8
+          shadow-2xl
+        ">
 
           <div className="
-            mt-12
-            backdrop-blur-xl
-            bg-white/10
-            border
-            border-white/10
+            text-lg
+            mb-5
+            text-gray-300
+          ">
+            DreamS AI
+          </div>
+
+          <div className="
+            bg-black/40
             rounded-3xl
             p-6
-            shadow-2xl
-            max-w-md
+            text-xl
+            leading-relaxed
           ">
+            Zaprojektuj nowoczesną
+            kuchnię premium z wyspą,
+            frontami kaszmir mat,
+            oświetleniem LED i
+            zabudową pod sufit.
+          </div>
 
-            <div className="
-              text-sm
-              text-gray-300
-              mb-3
-            ">
-              DreamS AI
-            </div>
-
-            <div className="
-              bg-black/40
-              rounded-2xl
-              p-4
-              text-sm
-              leading-relaxed
-              text-gray-200
-            ">
-              Zaprojektuj nowoczesną
-              kuchnię premium z wyspą,
-              frontami kaszmir mat,
-              oświetleniem LED i
-              zabudową pod sufit.
-            </div>
-
-            <div className="
-              mt-4
-              bg-green-500/20
-              border
-              border-green-500/20
-              rounded-2xl
-              p-4
-              text-sm
-              text-green-200
-            ">
-              ✓ Wizualizacja gotowa
-              <br />
-              ✓ Wycena wygenerowana
-            </div>
-
+          <div className="
+            mt-6
+            bg-green-600/30
+            border
+            border-green-500/30
+            rounded-3xl
+            p-5
+            text-lg
+            leading-relaxed
+          ">
+            ✓ Wizualizacja gotowa
+            <br />
+            ✓ Wycena wygenerowana
           </div>
 
         </div>
 
       </div>
 
-      {/* RIGHT SIDE */}
+      {/* PRAWA STRONA */}
 
       <div className="
         flex
         items-center
         justify-center
-        p-8
+        p-6
+        relative
+        overflow-hidden
       ">
 
+        {/* GLOW */}
+
         <div className="
+          absolute
+          top-0
+          right-0
+          w-[500px]
+          h-[500px]
+          bg-blue-600/20
+          blur-[160px]
+          rounded-full
+        " />
+
+        <div className="
+          absolute
+          bottom-0
+          left-0
+          w-[400px]
+          h-[400px]
+          bg-purple-600/20
+          blur-[160px]
+          rounded-full
+        " />
+
+        {/* LOGIN CARD */}
+
+        <div className="
+          relative
+          z-10
           w-full
           max-w-md
-          backdrop-blur-2xl
           bg-white/5
           border
           border-white/10
-          rounded-3xl
+          backdrop-blur-2xl
+          rounded-[40px]
           p-10
           shadow-2xl
         ">
+
+          {/* LOGO */}
 
           <div className="
             flex
@@ -250,8 +314,9 @@ export default function LoginPage() {
             <Image
               src="/logo.png"
               alt="DreamS AI"
-              width={180}
-              height={60}
+              width={240}
+              height={90}
+              priority
               style={{
                 width: "auto",
                 height: "auto",
@@ -260,135 +325,156 @@ export default function LoginPage() {
 
           </div>
 
+          {/* HEADER */}
+
           <h2 className="
-            text-4xl
+            text-5xl
             font-bold
-            mb-3
             text-center
+            mb-5
           ">
-            {isRegister
-              ? "Utwórz konto"
-              : "Witaj ponownie"}
+            Witaj ponownie
           </h2>
 
           <p className="
-            text-gray-400
             text-center
+            text-gray-400
+            text-lg
             mb-10
+            leading-relaxed
           ">
-            DreamS AI —
-            platforma AI dla
-            producentów mebli premium
+            DreamS AI — platforma AI
+            dla producentów mebli premium
           </p>
 
+          {/* INPUTS */}
+
           <div className="
-            space-y-4
+            space-y-5
           ">
 
             <input
-
               type="email"
-
               placeholder="Email"
 
               value={email}
 
               onChange={(e) =>
-                setEmail(e.target.value)
+                setEmail(
+                  e.target.value
+                )
               }
 
               className="
                 w-full
-                p-4
-                rounded-2xl
-                bg-black/40
-                border
-                border-white/10
+                p-5
+                rounded-3xl
+                bg-white
+                text-black
                 outline-none
-                focus:border-green-500
-                transition
+                text-lg
               "
             />
 
             <input
-
               type="password"
-
               placeholder="Hasło"
 
               value={password}
 
               onChange={(e) =>
-                setPassword(e.target.value)
+                setPassword(
+                  e.target.value
+                )
               }
 
               className="
                 w-full
-                p-4
-                rounded-2xl
-                bg-black/40
-                border
-                border-white/10
+                p-5
+                rounded-3xl
+                bg-white
+                text-black
                 outline-none
-                focus:border-green-500
-                transition
+                text-lg
               "
             />
 
           </div>
 
+          {/* LOGIN */}
+
           <button
 
-            onClick={handleAuth}
+            onClick={login}
 
             disabled={loading}
 
             className="
               w-full
-              mt-6
+              mt-8
               bg-green-600
-              hover:bg-green-700
+              hover:bg-green-500
               transition
-              p-4
-              rounded-2xl
+              text-white
+              p-5
+              rounded-3xl
               font-bold
-              text-lg
-              shadow-lg
-              shadow-green-500/20
+              text-2xl
+              shadow-2xl
             "
           >
-            {loading
-              ? "Ładowanie..."
-              : isRegister
-              ? "Zarejestruj się"
-              : "Zaloguj się"}
-          </button>
 
-          <button
-
-            onClick={() =>
-              setIsRegister(
-                !isRegister
-              )
+            {
+              loading
+                ? "Logowanie..."
+                : "Zaloguj się"
             }
 
-            className="
-              w-full
-              mt-4
-              text-gray-400
-              hover:text-white
-              transition
-            "
-          >
-            {isRegister
-              ? "Masz już konto? Zaloguj się"
-              : "Nie masz konta? Zarejestruj się"}
           </button>
 
+          {/* LINKS */}
+
+          <div className="
+            flex
+            items-center
+            justify-center
+            gap-6
+            mt-6
+            text-sm
+          ">
+
+            <button
+
+              onClick={resetPassword}
+
+              className="
+                text-gray-400
+                hover:text-white
+                transition
+              "
+            >
+              Reset hasła
+            </button>
+
+            <button
+
+              className="
+                text-gray-400
+                hover:text-white
+                transition
+              "
+            >
+              Rejestracja
+            </button>
+
+          </div>
+
+          {/* FOOTER */}
+
           <p className="
-            text-xs
-            text-gray-500
             text-center
+            text-gray-500
+            text-sm
             mt-10
             leading-relaxed
           ">
