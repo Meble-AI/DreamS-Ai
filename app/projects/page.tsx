@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState }
-from "react";
+import {
+  useEffect,
+  useState,
+
+} from "react";
+
+import Image from "next/image";
 
 import { supabase }
 from "@/lib/supabase";
@@ -14,92 +19,61 @@ export default function ProjectsPage() {
   const [loading, setLoading] =
     useState(true);
 
-  // =========================
-  // LOAD PROJECTS
-  // =========================
-
   useEffect(() => {
 
     async function loadProjects() {
 
-      const {
-        data: { session },
-      } =
-        await supabase.auth.getSession();
+      try {
 
-      if (!session) {
+        const {
 
-        window.location.href =
-          "/login";
+          data: { user },
 
-        return;
+        } =
+          await supabase.auth.getUser();
+
+        if (!user?.email) {
+
+          window.location.href =
+            "/login";
+
+          return;
+        }
+
+        const { data } =
+          await supabase
+
+            .from("projects")
+
+            .select("*")
+
+            .eq(
+              "user_email",
+              user.email
+            )
+
+            .order(
+              "created_at",
+              {
+                ascending: false,
+              }
+            );
+
+        setProjects(data || []);
+
+      } catch (err) {
+
+        console.log(err);
+
+      } finally {
+
+        setLoading(false);
       }
-
-      const email =
-        session.user.email;
-
-      const { data } =
-        await supabase
-
-          .from("projects")
-
-          .select("*")
-
-          .eq(
-            "user_email",
-            email
-          )
-
-          .order(
-            "created_at",
-
-            {
-              ascending: false,
-            }
-          );
-
-      setProjects(
-        data || []
-      );
-
-      setLoading(false);
     }
 
     loadProjects();
 
   }, []);
-
-  // =========================
-  // LOADING
-  // =========================
-
-  if (loading) {
-
-    return (
-
-      <main className="
-        min-h-screen
-        bg-black
-        text-white
-        flex
-        items-center
-        justify-center
-      ">
-
-        <div className="
-          text-3xl
-          font-bold
-        ">
-          Ładowanie projektów...
-        </div>
-
-      </main>
-    );
-  }
-
-  // =========================
-  // PAGE
-  // =========================
 
   return (
 
@@ -107,35 +81,98 @@ export default function ProjectsPage() {
       min-h-screen
       bg-black
       text-white
-      p-8
+      relative
+      overflow-hidden
+      p-6
+      lg:p-10
     ">
 
+      {/* BACKGROUND */}
+
       <div className="
-        max-w-6xl
+        absolute
+        inset-0
+        bg-gradient-to-br
+        from-black
+        via-black/95
+        to-blue-950/40
+      " />
+
+      {/* GLOW */}
+
+      <div className="
+        absolute
+        top-0
+        left-0
+        w-[700px]
+        h-[700px]
+        bg-blue-600/20
+        blur-[180px]
+        rounded-full
+      " />
+
+      <div className="
+        absolute
+        bottom-0
+        right-0
+        w-[600px]
+        h-[600px]
+        bg-purple-600/20
+        blur-[180px]
+        rounded-full
+      " />
+
+      <div className="
+        relative
+        z-10
+        max-w-7xl
         mx-auto
       ">
 
+        {/* TOPBAR */}
+
         <div className="
           flex
-          justify-between
-          items-center
-          mb-10
+          flex-col
+          lg:flex-row
+          lg:items-center
+          lg:justify-between
+          gap-6
+          mb-12
         ">
 
           <div>
 
+            <Image
+              src="/logo.png"
+              alt="DreamS AI"
+              width={220}
+              height={80}
+              priority
+              style={{
+                width: "auto",
+                height: "auto",
+              }}
+              className="
+                mb-4
+              "
+            />
+
             <h1 className="
               text-5xl
+              lg:text-6xl
               font-bold
-              mb-2
             ">
-              Moje Projekty
+              Moje projekty
             </h1>
 
             <p className="
               text-gray-400
+              text-xl
+              mt-4
             ">
-              Historia projektów DreamS AI
+              Historia wygenerowanych
+              projektów DreamS AI
             </p>
 
           </div>
@@ -144,40 +181,118 @@ export default function ProjectsPage() {
 
             onClick={() =>
               window.location.href =
-                "/"
+                "/dashboard"
             }
 
             className="
               bg-white
               text-black
-              px-6
-              py-3
-              rounded-2xl
+              hover:scale-105
+              transition
+              px-8
+              py-5
+              rounded-3xl
               font-bold
+              text-lg
+              shadow-2xl
             "
           >
-            Wróć
+            Wróć do AI
           </button>
 
         </div>
 
-        {projects.length === 0 && (
+        {/* LOADING */}
+
+        {loading && (
 
           <div className="
-            text-center
-            text-gray-400
-            mt-20
+            flex
+            flex-col
+            items-center
+            justify-center
+            py-32
+            gap-6
           ">
-            Brak projektów
+
+            <div className="
+              w-20
+              h-20
+              border-4
+              border-white
+              border-t-transparent
+              rounded-full
+              animate-spin
+            " />
+
+            <div className="
+              text-3xl
+              font-bold
+            ">
+              Ładowanie projektów...
+            </div>
+
           </div>
 
         )}
+
+        {/* EMPTY */}
+
+        {
+
+          !loading &&
+          projects.length === 0 && (
+
+            <div className="
+              bg-white/5
+              border
+              border-white/10
+              backdrop-blur-xl
+              rounded-[40px]
+              p-20
+              text-center
+            ">
+
+              <div className="
+                text-5xl
+                mb-6
+              ">
+                📂
+              </div>
+
+              <h2 className="
+                text-4xl
+                font-bold
+                mb-6
+              ">
+                Brak zapisanych projektów
+              </h2>
+
+              <p className="
+                text-gray-400
+                text-xl
+                max-w-2xl
+                mx-auto
+                leading-relaxed
+              ">
+                Wygeneruj pierwszą
+                wizualizację kuchni premium,
+                aby pojawiła się
+                w historii projektów.
+              </p>
+
+            </div>
+
+          )
+        }
+
+        {/* PROJECTS */}
 
         <div className="
           grid
           md:grid-cols-2
           xl:grid-cols-3
-          gap-6
+          gap-8
         ">
 
           {projects.map(
@@ -188,111 +303,68 @@ export default function ProjectsPage() {
                 key={project.id}
 
                 className="
-                  bg-gray-900
-                  rounded-3xl
-                  overflow-hidden
+                  bg-white/5
                   border
-                  border-gray-800
+                  border-white/10
+                  backdrop-blur-xl
+                  rounded-[35px]
+                  overflow-hidden
+                  shadow-2xl
                 "
               >
 
-                {project.generated_image && (
+                {
 
-                  <img
+                  project.image_url && (
 
-                    src={`data:image/png;base64,${project.generated_image}`}
+                    <img
 
-                    alt="project"
+                      src={`data:image/png;base64,${project.image_url}`}
 
-                    className="
-                      w-full
-                      h-64
-                      object-cover
-                    "
-                  />
+                      alt="Projekt"
 
-                )}
+                      className="
+                        w-full
+                        h-[320px]
+                        object-cover
+                      "
+                    />
+
+                  )
+                }
 
                 <div className="
-                  p-6
+                  p-8
                 ">
 
-                  <h2 className="
-                    text-2xl
-                    font-bold
-                    mb-2
-                  ">
-                    {project.project_name}
-                  </h2>
-
                   <div className="
-                    text-gray-400
                     text-sm
+                    text-gray-500
                     mb-4
                   ">
 
-                    {new Date(
-                      project.created_at
-                    ).toLocaleDateString()}
+                    {
+
+                      new Date(
+                        project.created_at
+                      ).toLocaleDateString(
+                        "pl-PL"
+                      )
+                    }
 
                   </div>
 
                   <div className="
-                    space-y-2
-                    mb-6
+                    text-xl
+                    text-gray-200
+                    leading-relaxed
+                    whitespace-pre-wrap
+                    line-clamp-6
                   ">
 
-                    <div>
-                      Netto:
-                      {" "}
-                      <span className="
-                        font-bold
-                      ">
-                        {project.estimate_netto || 0} zł
-                      </span>
-                    </div>
-
-                    <div>
-                      Brutto:
-                      {" "}
-                      <span className="
-                        font-bold
-                      ">
-                        {project.estimate_brutto || 0} zł
-                      </span>
-                    </div>
+                    {project.prompt}
 
                   </div>
-
-                  <button
-
-                    onClick={() => {
-
-                      localStorage.setItem(
-
-                        "dreams-project",
-
-                        JSON.stringify(
-                          project
-                        )
-                      );
-
-                      window.location.href =
-                        "/";
-                    }}
-
-                    className="
-                      w-full
-                      bg-blue-600
-                      hover:bg-blue-700
-                      transition
-                      py-3
-                      rounded-2xl
-                      font-bold
-                    "
-                  >
-                    Otwórz projekt
-                  </button>
 
                 </div>
 
