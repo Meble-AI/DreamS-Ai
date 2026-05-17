@@ -21,64 +21,67 @@ export default function LoginPage() {
   const [isRecovery, setIsRecovery] =
     useState(false);
 
-useEffect(() => {
+  const [isRegister, setIsRegister] =
+    useState(false);
 
-  async function checkRecovery() {
+  useEffect(() => {
 
-    try {
+    async function checkRecovery() {
 
-      const hash =
-        window.location.hash;
+      try {
 
-      if (
-        hash.includes(
-          "access_token"
-        )
-      ) {
-
-        const accessToken =
-          new URLSearchParams(
-
-            hash.substring(1)
-          ).get(
-            "access_token"
-          );
-
-        const refreshToken =
-          new URLSearchParams(
-
-            hash.substring(1)
-          ).get(
-            "refresh_token"
-          );
+        const hash =
+          window.location.hash;
 
         if (
-          accessToken &&
-          refreshToken
+          hash.includes(
+            "access_token"
+          )
         ) {
 
-          await supabase.auth.setSession({
+          const accessToken =
+            new URLSearchParams(
 
-            access_token:
-              accessToken,
+              hash.substring(1)
+            ).get(
+              "access_token"
+            );
 
-            refresh_token:
-              refreshToken,
-          });
+          const refreshToken =
+            new URLSearchParams(
 
-          setIsRecovery(true);
+              hash.substring(1)
+            ).get(
+              "refresh_token"
+            );
+
+          if (
+            accessToken &&
+            refreshToken
+          ) {
+
+            await supabase.auth.setSession({
+
+              access_token:
+                accessToken,
+
+              refresh_token:
+                refreshToken,
+            });
+
+            setIsRecovery(true);
+          }
         }
+
+      } catch (err) {
+
+        console.log(err);
       }
-
-    } catch (err) {
-
-      console.log(err);
     }
-  }
 
-  checkRecovery();
+    checkRecovery();
 
-}, []);
+  }, []);
 
   async function login() {
 
@@ -100,13 +103,54 @@ useEffect(() => {
         return;
       }
 
-      window.location.href = "/dashboard";
+      window.location.href =
+        "/dashboard";
 
     } catch (err) {
 
       console.log(err);
 
       alert("Błąd logowania");
+
+    } finally {
+
+      setLoading(false);
+    }
+  }
+
+  async function register() {
+
+    try {
+
+      setLoading(true);
+
+      const { error } =
+        await supabase.auth.signUp({
+
+          email,
+          password,
+        });
+
+      if (error) {
+
+        alert(error.message);
+
+        return;
+      }
+
+      alert(
+        "Konto zostało utworzone 🙂 Sprawdź email."
+      );
+
+      setIsRegister(false);
+
+    } catch (err) {
+
+      console.log(err);
+
+      alert(
+        "Błąd rejestracji"
+      );
 
     } finally {
 
@@ -134,7 +178,7 @@ useEffect(() => {
 
           {
             redirectTo:
-              "https://dream-s-ai.vercel.app/login",
+              "https://dreams-ai.pl/login",
           }
         );
 
@@ -231,30 +275,30 @@ useEffect(() => {
         p-16
       ">
 
-        {/* TŁO */}
+        {/* VIDEO */}
 
         <video
-  autoPlay
-  muted
-  loop
-  playsInline
+          autoPlay
+          muted
+          loop
+          playsInline
 
-  className="
-    absolute
-    inset-0
-    w-full
-    h-full
-    object-cover
-    opacity-60
-  "
->
+          className="
+            absolute
+            inset-0
+            w-full
+            h-full
+            object-cover
+            opacity-60
+          "
+        >
 
-  <source
-    src="/login-bg.mp4"
-    type="video/mp4"
-  />
+          <source
+            src="/login-bg.mp4"
+            type="video/mp4"
+          />
 
-</video>
+        </video>
 
         <div className="
           absolute
@@ -461,6 +505,8 @@ useEffect(() => {
             {
               isRecovery
                 ? "Ustaw nowe hasło"
+                : isRegister
+                ? "Utwórz konto"
                 : "Witaj ponownie"
             }
 
@@ -575,6 +621,8 @@ useEffect(() => {
             onClick={
               isRecovery
                 ? updatePassword
+                : isRegister
+                ? register
                 : login
             }
 
@@ -600,6 +648,8 @@ useEffect(() => {
                 ? "Ładowanie..."
                 : isRecovery
                 ? "Zmień hasło"
+                : isRegister
+                ? "Zarejestruj się"
                 : "Zaloguj się"
             }
 
@@ -635,13 +685,25 @@ useEffect(() => {
 
                 <button
 
+                  onClick={() =>
+                    setIsRegister(
+                      !isRegister
+                    )
+                  }
+
                   className="
                     text-gray-400
                     hover:text-white
                     transition
                   "
                 >
-                  Rejestracja
+
+                  {
+                    isRegister
+                      ? "Logowanie"
+                      : "Rejestracja"
+                  }
+
                 </button>
 
               </div>
