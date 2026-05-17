@@ -100,7 +100,7 @@ useEffect(() => {
         return;
       }
 
-      window.location.href = "/";
+      window.location.href = "/dashboard";
 
     } catch (err) {
 
