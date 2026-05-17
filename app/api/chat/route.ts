@@ -381,9 +381,21 @@ UWAGA:
 - luxury kitchen,
 - photorealistic.
 
-WYMAGANIA KLIENTA:
+AKTUALNY PROJEKT KUCHNI
+ORAZ OSTATNIE POPRAWKI KLIENTA:
+
+CAŁA HISTORIA:
+
+${conversation}
+
+OSTATNIA WIADOMOŚĆ KLIENTA:
 
 ${message}
+
+UWAGA:
+Jeśli klient chce poprawić istniejącą wizualizację,
+zmień TYLKO wskazane elementy,
+a resztę projektu zachowaj.
 
 `;
 
@@ -397,7 +409,7 @@ ${message}
             imagePrompt,
 
           size:
-            "1024x1024",
+            "1024x1536",
         });
 
       const rawImage =
