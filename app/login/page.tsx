@@ -233,19 +233,28 @@ useEffect(() => {
 
         {/* TŁO */}
 
-        <div
-          className="
-            absolute
-            inset-0
-            bg-cover
-            bg-center
-            opacity-60
-          "
-          style={{
-            backgroundImage:
-              "url('/bg.jpg')",
-          }}
-        />
+        <video
+  autoPlay
+  muted
+  loop
+  playsInline
+
+  className="
+    absolute
+    inset-0
+    w-full
+    h-full
+    object-cover
+    opacity-60
+  "
+>
+
+  <source
+    src="/login-bg.mp4"
+    type="video/mp4"
+  />
+
+</video>
 
         <div className="
           absolute
