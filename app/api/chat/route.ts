@@ -135,7 +135,7 @@ ${item.ai}
 
       ||
 
-      history.length >= 6;
+      history.length >= 10;
 
     // =========================
     // CONSULTATION
@@ -198,7 +198,7 @@ ${conversation}
             },
           ],
 
-          temperature: 0.7,
+          temperature: 1,
         });
 
       return Response.json({
@@ -310,22 +310,29 @@ ${conversation}
 
     try {
 
-      const imagePrompt = `
+const imagePrompt = `
 
-Fotorealistyczna nowoczesna kuchnia premium.
+Stwórz fotorealistyczną wizualizację kuchni premium
+na podstawie rozmowy klienta.
 
-Styl luksusowy.
-Ciemne drewno.
-Akryl kaszmir mat.
-Blaty spiek kwarcowy.
-Nowoczesne LED.
-Wyspa kuchenna.
-Lodówka w zabudowie.
-Piekarnik w słupku.
-Minimalistyczny design.
-Realistic interior design.
-Ultra realistic.
-Premium kitchen.
+UWAGA:
+- wizualizacja MUSI być zgodna z opisem klienta,
+- NIE wymyślaj własnego stylu,
+- uwzględnij wszystkie wymagania klienta,
+- zachowaj spójność rozmowy,
+- jeśli klient podał kolory, materiały, układ lub styl — MUSISZ je uwzględnić,
+- jeśli klient zmienił zdanie podczas rozmowy — uwzględnij OSTATNIE ustalenia,
+- projekt ma wyglądać jak profesjonalna wizualizacja architektoniczna,
+- ultra realistic,
+- photorealistic,
+- premium interior design,
+- cinematic lighting,
+- realistic materials,
+- luxury kitchen visualization.
+
+ROZMOWA KLIENTA:
+
+${conversation}
 
 `;
 
