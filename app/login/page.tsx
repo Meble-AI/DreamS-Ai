@@ -69,7 +69,7 @@ export default function LoginPage() {
 
           {
             redirectTo:
-              "http://localhost:3000/login",
+  "https://dream-s-ai.vercel.app/login",
           }
         );
 
