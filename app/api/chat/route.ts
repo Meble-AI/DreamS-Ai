@@ -92,36 +92,28 @@ export async function POST(
 
       ...history.map(
         (item: any) => `
+KLIENT:
 ${item.user}
+
+DREAMS AI:
 ${item.ai}
 `
       ),
 
-      message,
+      `
+KLIENT:
+${message}
+`,
     ].join("\n");
 
     const lowerConversation =
       conversation.toLowerCase();
 
+    // =========================
+    // GENERATE PROJECT?
+    // =========================
+
     const generateProject =
-
-      lowerConversation.includes(
-        "gotowe"
-      )
-
-      ||
-
-      lowerConversation.includes(
-        "akceptuję"
-      )
-
-      ||
-
-      lowerConversation.includes(
-        "akceptuje"
-      )
-
-      ||
 
       lowerConversation.includes(
         "stwórz projekt"
@@ -130,15 +122,41 @@ ${item.ai}
       ||
 
       lowerConversation.includes(
-        "zrób projekt"
+        "wygeneruj projekt"
       )
 
       ||
 
-      history.length >= 10;
+      lowerConversation.includes(
+        "generuj wizualizację"
+      )
+
+      ||
+
+      lowerConversation.includes(
+        "pokaż projekt"
+      )
+
+      ||
+
+      lowerConversation.includes(
+        "zrób wizualizację"
+      )
+
+      ||
+
+      lowerConversation.includes(
+        "wizualizacja"
+      )
+
+      ||
+
+      lowerConversation.includes(
+        "projekt gotowy"
+      );
 
     // =========================
-    // CONSULTATION
+    // CONSULTATION MODE
     // =========================
 
     if (!generateProject) {
@@ -156,20 +174,44 @@ ${item.ai}
 
               content: `
 
-Jesteś doradcą DreamS AI.
+Jesteś profesjonalnym projektantem kuchni premium DreamS AI.
 
-Prowadzisz konsultację dotyczącą mebli kuchennych premium.
+Twoim zadaniem jest:
 
-Twoje zadania:
+- prowadzić konsultację,
+- analizować potrzeby klienta,
+- zapamiętywać wszystkie ustalenia,
+- zadawać pytania jak prawdziwy projektant wnętrz,
+- pomagać klientowi stworzyć idealną kuchnię.
 
-- prowadzić rozmowę,
-- zadawać pytania,
-- zbierać informacje,
-- NIE podawać jeszcze wyceny,
-- NIE tworzyć jeszcze projektu,
-- NIE tworzyć jeszcze wizualizacji.
+BARDZO WAŻNE:
+
+- słuchaj klienta,
+- analizuj CAŁĄ rozmowę,
+- nie ignoruj wcześniejszych ustaleń,
+- jeśli klient zmienia zdanie — uwzględnij OSTATNIĄ wersję,
+- nie generuj jeszcze projektu,
+- nie generuj jeszcze wizualizacji,
+- nie podawaj jeszcze wyceny.
 
 Zadawaj maksymalnie 2 pytania naraz.
+
+Pytaj o:
+- styl,
+- kolory,
+- układ,
+- sprzęty,
+- wymiary,
+- budżet,
+- materiały,
+- inspiracje,
+- funkcjonalność,
+- rodzaj oświetlenia,
+- wysokość zabudowy,
+- wyspę,
+- ergonomię.
+
+Masz zachowywać się jak ekskluzywny projektant kuchni premium.
 
 `,
             },
@@ -191,7 +233,8 @@ ${city}
 Email:
 ${email}
 
-Historia:
+CAŁA ROZMOWA:
+
 ${conversation}
 
 `,
@@ -232,9 +275,15 @@ ${conversation}
 
             content: `
 
-Jesteś projektantem DreamS AI.
+Jesteś profesjonalnym projektantem kuchni premium DreamS AI.
 
-Klient podał komplet informacji.
+Na podstawie całej rozmowy:
+
+- przeanalizuj wymagania klienta,
+- uwzględnij wszystkie ustalenia,
+- uwzględnij poprawki klienta,
+- zachowaj spójność projektu,
+- NIE ignoruj wcześniejszych informacji.
 
 Wygeneruj profesjonalny projekt kuchni premium.
 
@@ -245,25 +294,30 @@ Układ odpowiedzi:
 
 1. Krótki opis projektu
 
-2. Lista zabudowy
+2. Układ i zabudowa
 
 3. Materiały
 
-4. AGD
+4. Kolorystyka
+
+5. AGD
 (Napisz:
 AGD wyceniane osobno)
 
-5. Ergonomia i funkcjonalność
+6. Oświetlenie
 
-6. Szczegółowa wycena
+7. Ergonomia i funkcjonalność
+
+8. Szczegółowa wycena
 (TYLKO MEBLE)
 
-7. Profesjonalne podsumowanie
+9. Profesjonalne podsumowanie
 
 Styl:
 premium,
+nowoczesny,
 estetyczny,
-nowoczesny.
+luksusowy.
 
 `,
           },
@@ -285,14 +339,15 @@ ${city}
 Email:
 ${email}
 
-Historia:
+CAŁA ROZMOWA:
+
 ${conversation}
 
 `,
           },
         ],
 
-        temperature: 0.7,
+        temperature: 1,
       });
 
     const aiReply =
@@ -310,27 +365,32 @@ ${conversation}
 
     try {
 
-const imagePrompt = `
+      const imagePrompt = `
 
-Stwórz fotorealistyczną wizualizację kuchni premium
+Stwórz ultra realistyczną wizualizację kuchni premium
 na podstawie rozmowy klienta.
 
-UWAGA:
+BARDZO WAŻNE:
+
 - wizualizacja MUSI być zgodna z opisem klienta,
-- NIE wymyślaj własnego stylu,
-- uwzględnij wszystkie wymagania klienta,
-- zachowaj spójność rozmowy,
-- jeśli klient podał kolory, materiały, układ lub styl — MUSISZ je uwzględnić,
-- jeśli klient zmienił zdanie podczas rozmowy — uwzględnij OSTATNIE ustalenia,
-- projekt ma wyglądać jak profesjonalna wizualizacja architektoniczna,
-- ultra realistic,
+- NIE ignoruj wymagań klienta,
+- uwzględnij wszystkie ustalenia,
+- uwzględnij poprawki klienta,
+- jeśli klient zmienił zdanie — użyj OSTATNICH ustaleń,
+- zachowaj profesjonalny poziom architektoniczny,
+- nowoczesna fotografia wnętrz,
 - photorealistic,
-- premium interior design,
 - cinematic lighting,
 - realistic materials,
-- luxury kitchen visualization.
+- luxury kitchen,
+- premium interior design,
+- architectural visualization,
+- ultra realistic,
+- realistic proportions,
+- premium furniture,
+- realistic textures.
 
-ROZMOWA KLIENTA:
+CAŁA ROZMOWA KLIENTA:
 
 ${conversation}
 
@@ -389,6 +449,17 @@ BRUTTO:
 ${estimate.brutto} zł
 
 AGD wyceniane osobno.
+
+Jeśli chcesz:
+- zmienić układ,
+- poprawić kolory,
+- zmienić styl,
+- dodać wyspę,
+- zmienić materiały,
+- poprawić oświetlenie,
+- stworzyć nową wersję,
+
+po prostu napisz co zmieniamy 🙂
 
 `;
 
