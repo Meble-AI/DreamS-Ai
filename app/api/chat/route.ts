@@ -367,32 +367,23 @@ ${conversation}
 
       const imagePrompt = `
 
-Stwórz ultra realistyczną wizualizację kuchni premium
-na podstawie rozmowy klienta.
+Fotorealistyczna wizualizacja kuchni premium.
 
-BARDZO WAŻNE:
-
-- wizualizacja MUSI być zgodna z opisem klienta,
-- NIE ignoruj wymagań klienta,
-- uwzględnij wszystkie ustalenia,
-- uwzględnij poprawki klienta,
-- jeśli klient zmienił zdanie — użyj OSTATNICH ustaleń,
-- zachowaj profesjonalny poziom architektoniczny,
-- nowoczesna fotografia wnętrz,
-- photorealistic,
+UWAGA:
+- wizualizacja MUSI być zgodna z wymaganiami klienta,
+- uwzględnij opis klienta,
+- zachowaj realizm,
+- nowoczesny styl architektoniczny,
+- premium interior design,
+- ultra realistic,
 - cinematic lighting,
 - realistic materials,
 - luxury kitchen,
-- premium interior design,
-- architectural visualization,
-- ultra realistic,
-- realistic proportions,
-- premium furniture,
-- realistic textures.
+- photorealistic.
 
-CAŁA ROZMOWA KLIENTA:
+WYMAGANIA KLIENTA:
 
-${conversation}
+${message}
 
 `;
 
@@ -406,7 +397,7 @@ ${conversation}
             imagePrompt,
 
           size:
-            "1536x1024",
+            "1024x1024",
         });
 
       const rawImage =
