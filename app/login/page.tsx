@@ -21,9 +21,11 @@ export default function LoginPage() {
   const [isRecovery, setIsRecovery] =
     useState(false);
 
-  useEffect(() => {
+useEffect(() => {
 
-    async function checkRecovery() {
+  async function checkRecovery() {
+
+    try {
 
       const hash =
         window.location.hash;
@@ -34,13 +36,49 @@ export default function LoginPage() {
         )
       ) {
 
-        setIsRecovery(true);
+        const accessToken =
+          new URLSearchParams(
+
+            hash.substring(1)
+          ).get(
+            "access_token"
+          );
+
+        const refreshToken =
+          new URLSearchParams(
+
+            hash.substring(1)
+          ).get(
+            "refresh_token"
+          );
+
+        if (
+          accessToken &&
+          refreshToken
+        ) {
+
+          await supabase.auth.setSession({
+
+            access_token:
+              accessToken,
+
+            refresh_token:
+              refreshToken,
+          });
+
+          setIsRecovery(true);
+        }
       }
+
+    } catch (err) {
+
+      console.log(err);
     }
+  }
 
-    checkRecovery();
+  checkRecovery();
 
-  }, []);
+}, []);
 
   async function login() {
 
