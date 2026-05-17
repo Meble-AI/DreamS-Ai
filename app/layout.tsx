@@ -8,7 +8,11 @@ export const metadata: Metadata = {
   title: "DreamS AI",
 
   description:
-    "Projektowanie mebli premium z pomocą AI",
+    "DreamS AI — projektowanie mebli premium z pomocą sztucznej inteligencji",
+
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
