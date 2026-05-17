@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -12,8 +12,35 @@ export default function LoginPage() {
   const [password, setPassword] =
     useState("");
 
+  const [newPassword, setNewPassword] =
+    useState("");
+
   const [loading, setLoading] =
     useState(false);
+
+  const [isRecovery, setIsRecovery] =
+    useState(false);
+
+  useEffect(() => {
+
+    async function checkRecovery() {
+
+      const hash =
+        window.location.hash;
+
+      if (
+        hash.includes(
+          "access_token"
+        )
+      ) {
+
+        setIsRecovery(true);
+      }
+    }
+
+    checkRecovery();
+
+  }, []);
 
   async function login() {
 
@@ -69,7 +96,7 @@ export default function LoginPage() {
 
           {
             redirectTo:
-  "https://dream-s-ai.vercel.app/login",
+              "https://dream-s-ai.vercel.app/login",
           }
         );
 
@@ -91,6 +118,56 @@ export default function LoginPage() {
       alert(
         "Błąd resetowania hasła"
       );
+    }
+  }
+
+  async function updatePassword() {
+
+    if (!newPassword) {
+
+      alert(
+        "Wpisz nowe hasło"
+      );
+
+      return;
+    }
+
+    try {
+
+      setLoading(true);
+
+      const { error } =
+        await supabase.auth.updateUser({
+
+          password:
+            newPassword,
+        });
+
+      if (error) {
+
+        alert(error.message);
+
+        return;
+      }
+
+      alert(
+        "Hasło zostało zmienione 🙂"
+      );
+
+      window.location.href =
+        "/login";
+
+    } catch (err) {
+
+      console.log(err);
+
+      alert(
+        "Błąd zmiany hasła"
+      );
+
+    } finally {
+
+      setLoading(false);
     }
   }
 
@@ -333,7 +410,13 @@ export default function LoginPage() {
             text-center
             mb-5
           ">
-            Witaj ponownie
+
+            {
+              isRecovery
+                ? "Ustaw nowe hasło"
+                : "Witaj ponownie"
+            }
+
           </h2>
 
           <p className="
@@ -343,69 +426,110 @@ export default function LoginPage() {
             mb-10
             leading-relaxed
           ">
-            DreamS AI — platforma AI
-            dla producentów mebli premium
+
+            {
+              isRecovery
+                ? "Wprowadź nowe hasło"
+                : "DreamS AI — platforma AI dla producentów mebli premium"
+            }
+
           </p>
 
           {/* INPUTS */}
 
-          <div className="
-            space-y-5
-          ">
+          {
 
-            <input
-              type="email"
-              placeholder="Email"
+            isRecovery ? (
 
-              value={email}
+              <input
+                type="password"
+                placeholder="Nowe hasło"
 
-              onChange={(e) =>
-                setEmail(
-                  e.target.value
-                )
-              }
+                value={newPassword}
 
-              className="
-                w-full
-                p-5
-                rounded-3xl
-                bg-white
-                text-black
-                outline-none
-                text-lg
-              "
-            />
+                onChange={(e) =>
+                  setNewPassword(
+                    e.target.value
+                  )
+                }
 
-            <input
-              type="password"
-              placeholder="Hasło"
+                className="
+                  w-full
+                  p-5
+                  rounded-3xl
+                  bg-white
+                  text-black
+                  outline-none
+                  text-lg
+                "
+              />
 
-              value={password}
+            ) : (
 
-              onChange={(e) =>
-                setPassword(
-                  e.target.value
-                )
-              }
+              <div className="
+                space-y-5
+              ">
 
-              className="
-                w-full
-                p-5
-                rounded-3xl
-                bg-white
-                text-black
-                outline-none
-                text-lg
-              "
-            />
+                <input
+                  type="email"
+                  placeholder="Email"
 
-          </div>
+                  value={email}
 
-          {/* LOGIN */}
+                  onChange={(e) =>
+                    setEmail(
+                      e.target.value
+                    )
+                  }
+
+                  className="
+                    w-full
+                    p-5
+                    rounded-3xl
+                    bg-white
+                    text-black
+                    outline-none
+                    text-lg
+                  "
+                />
+
+                <input
+                  type="password"
+                  placeholder="Hasło"
+
+                  value={password}
+
+                  onChange={(e) =>
+                    setPassword(
+                      e.target.value
+                    )
+                  }
+
+                  className="
+                    w-full
+                    p-5
+                    rounded-3xl
+                    bg-white
+                    text-black
+                    outline-none
+                    text-lg
+                  "
+                />
+
+              </div>
+
+            )
+          }
+
+          {/* BUTTON */}
 
           <button
 
-            onClick={login}
+            onClick={
+              isRecovery
+                ? updatePassword
+                : login
+            }
 
             disabled={loading}
 
@@ -426,7 +550,9 @@ export default function LoginPage() {
 
             {
               loading
-                ? "Logowanie..."
+                ? "Ładowanie..."
+                : isRecovery
+                ? "Zmień hasło"
                 : "Zaloguj się"
             }
 
@@ -434,40 +560,47 @@ export default function LoginPage() {
 
           {/* LINKS */}
 
-          <div className="
-            flex
-            items-center
-            justify-center
-            gap-6
-            mt-6
-            text-sm
-          ">
+          {
 
-            <button
+            !isRecovery && (
 
-              onClick={resetPassword}
+              <div className="
+                flex
+                items-center
+                justify-center
+                gap-6
+                mt-6
+                text-sm
+              ">
 
-              className="
-                text-gray-400
-                hover:text-white
-                transition
-              "
-            >
-              Reset hasła
-            </button>
+                <button
 
-            <button
+                  onClick={resetPassword}
 
-              className="
-                text-gray-400
-                hover:text-white
-                transition
-              "
-            >
-              Rejestracja
-            </button>
+                  className="
+                    text-gray-400
+                    hover:text-white
+                    transition
+                  "
+                >
+                  Reset hasła
+                </button>
 
-          </div>
+                <button
+
+                  className="
+                    text-gray-400
+                    hover:text-white
+                    transition
+                  "
+                >
+                  Rejestracja
+                </button>
+
+              </div>
+
+            )
+          }
 
           {/* FOOTER */}
 

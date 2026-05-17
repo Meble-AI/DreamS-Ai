@@ -1,74 +1,68 @@
 import Stripe from "stripe";
 
-const stripe = new Stripe(
-  process.env.STRIPE_SECRET_KEY!,
-  {
-    apiVersion: "2026-04-22.dahlia",
-  }
-);
+const stripe =
+  new Stripe(
+
+    process.env.STRIPE_SECRET_KEY!,
+
+    {
+      apiVersion:
+  "2025-04-30.basil" as any,
+    }
+  );
 
 export async function POST(
-  request: Request
+  req: Request
 ) {
 
   try {
 
     const body =
-      await request.json();
+      await req.json();
 
-    const email =
-      body.email;
+    const {
+      priceId,
+    } = body;
 
-    const plan =
-      body.plan;
+    if (!priceId) {
 
-    let priceId = "";
+      return Response.json(
 
-    if (plan === "basic") {
+        {
+          error:
+            "Brak priceId",
+        },
 
-      priceId =
-        process.env
-          .STRIPE_BASIC_PRICE_ID!;
-
-    } else if (
-      plan === "premium"
-    ) {
-
-      priceId =
-        process.env
-          .STRIPE_PREMIUM_PRICE_ID!;
-
-    } else {
-
-      priceId =
-        process.env
-          .STRIPE_PRO_PRICE_ID!;
+        {
+          status: 400,
+        }
+      );
     }
 
     const session =
       await stripe.checkout.sessions.create({
 
-        customer_email:
-          email,
-
         payment_method_types: [
           "card",
+          "blik",
         ],
 
-        mode: "subscription",
-
         line_items: [
+
           {
             price: priceId,
+
             quantity: 1,
           },
         ],
 
+        mode: "payment",
+
         success_url:
-          "http://localhost:3000",
+          "https://dream-s-ai.vercel.app/success",
 
         cancel_url:
-          "http://localhost:3000",
+          "https://dream-s-ai.vercel.app/pricing",
       });
 
     return Response.json({
@@ -77,14 +71,20 @@ export async function POST(
         session.url,
     });
 
-  } catch (err: any) {
+  } catch (err) {
 
     console.log(err);
 
-    return Response.json({
+    return Response.json(
 
-      error:
-        err.message,
-    });
+      {
+        error:
+          "Stripe error",
+      },
+
+      {
+        status: 500,
+      }
+    );
   }
 }
