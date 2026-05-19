@@ -12,6 +12,9 @@ export default function Home() {
   const [chat, setChat] =
     useState<any[]>([]);
 
+  const [loadedProject, setLoadedProject] =
+    useState(false);
+
   const [loading, setLoading] =
     useState(false);
 
@@ -30,7 +33,7 @@ export default function Home() {
   const [email, setEmail] =
     useState("");
 
-  /* STABILNY AUTH */
+  /* AUTH + LOAD PROJECT */
 
   useEffect(() => {
 
@@ -66,7 +69,54 @@ export default function Home() {
       }
     }
 
+    async function loadProject() {
+
+      try {
+
+        const params =
+          new URLSearchParams(
+            window.location.search
+          );
+
+        const projectId =
+          params.get("project");
+
+        if (!projectId)
+          return;
+
+        const { data } =
+          await supabase
+
+            .from("projects")
+
+            .select("*")
+
+            .eq(
+              "id",
+              projectId
+            )
+
+            .single();
+
+        if (
+          data?.conversation
+        ) {
+
+          setChat(
+            data.conversation
+          );
+
+          setLoadedProject(true);
+        }
+
+      } catch (err) {
+
+        console.log(err);
+      }
+    }
+
     getUser();
+    loadProject();
 
   }, []);
 
@@ -192,7 +242,7 @@ export default function Home() {
         updatedChat
       );
 
-      /* ZAPIS PROJEKTU */
+      /* SAVE PROJECT */
 
       if (
         email &&
@@ -207,18 +257,18 @@ export default function Home() {
 
             .insert([
 
-             {
-      user_email:
-        email,
+              {
+                user_email:
+                  email,
 
-      prompt:
-        message,
+                prompt:
+                  message,
 
-      image_url:
-        data.generatedImage,
+                image_url:
+                  data.generatedImage,
 
-      conversation:
-        updatedChat,
+                conversation:
+                  updatedChat,
               },
             ]);
 
@@ -734,41 +784,41 @@ export default function Home() {
             gap-4
           ">
 
-<input
-  value={message}
+            <input
+              value={message}
 
-  onChange={(e) =>
-    setMessage(
-      e.target.value
-    )
-  }
+              onChange={(e) =>
+                setMessage(
+                  e.target.value
+                )
+              }
 
-  onKeyDown={(e) => {
+              onKeyDown={(e) => {
 
-    if (
-      e.key === "Enter"
-    ) {
+                if (
+                  e.key === "Enter"
+                ) {
 
-      sendMessage();
-    }
-  }}
+                  sendMessage();
+                }
+              }}
 
-  placeholder="
-    Opisz swoją kuchnię premium...
-  "
+              placeholder="
+                Opisz swoją kuchnię premium...
+              "
 
-  className="
-    flex-1
-    p-6
-    rounded-3xl
-    bg-black/30
-    border
-    border-white/10
-    text-white
-    outline-none
-    text-lg
-  "
-/>
+              className="
+                flex-1
+                p-6
+                rounded-3xl
+                bg-black/30
+                border
+                border-white/10
+                text-white
+                outline-none
+                text-lg
+              "
+            />
 
             <button
 

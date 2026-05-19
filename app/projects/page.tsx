@@ -301,6 +301,10 @@ export default function ProjectsPage() {
               <div
 
                 key={project.id}
+                onClick={() =>
+  window.location.href =
+    `/dashboard?project=${project.id}`
+}
 
                 className="
                   bg-white/5
@@ -310,6 +314,9 @@ export default function ProjectsPage() {
                   rounded-[35px]
                   overflow-hidden
                   shadow-2xl
+                  cursor-pointer
+hover:scale-[1.02]
+transition
                 "
               >
 
