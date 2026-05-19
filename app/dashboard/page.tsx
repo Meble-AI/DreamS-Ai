@@ -207,15 +207,18 @@ export default function Home() {
 
             .insert([
 
-              {
-                user_email:
-                  email,
+             {
+      user_email:
+        email,
 
-                prompt:
-                  message,
+      prompt:
+        message,
 
-                image_url:
-                  data.generatedImage,
+      image_url:
+        data.generatedImage,
+
+      conversation:
+        updatedChat,
               },
             ]);
 
