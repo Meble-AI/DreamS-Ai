@@ -109,10 +109,6 @@ ${message}
     const lowerConversation =
       conversation.toLowerCase();
 
-    // =========================
-    // GENERATE PROJECT?
-    // =========================
-
     const generateProject =
 
       lowerConversation.includes(
@@ -156,7 +152,7 @@ ${message}
       );
 
     // =========================
-    // CONSULTATION MODE
+    // CONSULTATION
     // =========================
 
     if (!generateProject) {
@@ -177,41 +173,34 @@ ${message}
 Jesteś profesjonalnym projektantem kuchni premium DreamS AI.
 
 Twoim zadaniem jest:
-
 - prowadzić konsultację,
 - analizować potrzeby klienta,
 - zapamiętywać wszystkie ustalenia,
-- zadawać pytania jak prawdziwy projektant wnętrz,
-- pomagać klientowi stworzyć idealną kuchnię.
+- zachowywać się jak profesjonalny projektant kuchni na wymiar.
 
 BARDZO WAŻNE:
 
 - słuchaj klienta,
 - analizuj CAŁĄ rozmowę,
-- nie ignoruj wcześniejszych ustaleń,
+- NIE ignoruj wcześniejszych ustaleń,
 - jeśli klient zmienia zdanie — uwzględnij OSTATNIĄ wersję,
-- nie generuj jeszcze projektu,
+- NIE pytaj drugi raz o rzeczy które klient już podał,
+- przed zadaniem pytania przeanalizuj historię rozmowy,
+- zadawaj maksymalnie 2 pytania naraz,
 - nie generuj jeszcze wizualizacji,
 - nie podawaj jeszcze wyceny.
-
-Zadawaj maksymalnie 2 pytania naraz.
 
 Pytaj o:
 - styl,
 - kolory,
 - układ,
-- sprzęty,
-- wymiary,
-- budżet,
-- materiały,
-- inspiracje,
-- funkcjonalność,
-- rodzaj oświetlenia,
-- wysokość zabudowy,
+- AGD,
 - wyspę,
-- ergonomię.
-
-Masz zachowywać się jak ekskluzywny projektant kuchni premium.
+- oświetlenie,
+- budżet,
+- funkcjonalność,
+- wymiary,
+- materiały.
 
 `,
             },
@@ -233,7 +222,7 @@ ${city}
 Email:
 ${email}
 
-CAŁA ROZMOWA:
+ROZMOWA:
 
 ${conversation}
 
@@ -259,7 +248,7 @@ ${conversation}
     }
 
     // =========================
-    // FINAL PROJECT
+    // PROJECT
     // =========================
 
     const project =
@@ -275,49 +264,25 @@ ${conversation}
 
             content: `
 
-Jesteś profesjonalnym projektantem kuchni premium DreamS AI.
+Jesteś profesjonalnym projektantem kuchni premium.
 
-Na podstawie całej rozmowy:
+BARDZO WAŻNE:
 
-- przeanalizuj wymagania klienta,
-- uwzględnij wszystkie ustalenia,
-- uwzględnij poprawki klienta,
-- zachowaj spójność projektu,
-- NIE ignoruj wcześniejszych informacji.
+- projektuj jak producent mebli na wymiar,
+- zachowaj realistyczne proporcje,
+- zachowaj poprawne głębokości zabudowy,
+- nie zostawiaj pustych przestrzeni,
+- narożniki muszą być logiczne,
+- zachowaj ciągłość blatów,
+- projekt ma być możliwy do wykonania,
+- unikaj błędów stolarskich,
+- zachowaj ergonomię,
+- górne i dolne szafki muszą być spójne.
 
-Wygeneruj profesjonalny projekt kuchni premium.
-
-Układ odpowiedzi:
-
-# DreamS AI
-## Projekt kuchni premium
-
-1. Krótki opis projektu
-
-2. Układ i zabudowa
-
-3. Materiały
-
-4. Kolorystyka
-
-5. AGD
-(Napisz:
-AGD wyceniane osobno)
-
-6. Oświetlenie
-
-7. Ergonomia i funkcjonalność
-
-8. Szczegółowa wycena
-(TYLKO MEBLE)
-
-9. Profesjonalne podsumowanie
-
-Styl:
-premium,
-nowoczesny,
-estetyczny,
-luksusowy.
+Jeśli klient prosi o poprawki:
+- zachowaj istniejący projekt,
+- zmień tylko wskazane elementy,
+- nie twórz zupełnie nowej kuchni.
 
 `,
           },
@@ -327,19 +292,7 @@ luksusowy.
 
             content: `
 
-Imię:
-${name}
-
-Telefon:
-${phone}
-
-Miasto:
-${city}
-
-Email:
-${email}
-
-CAŁA ROZMOWA:
+ROZMOWA:
 
 ${conversation}
 
@@ -357,7 +310,7 @@ ${conversation}
       "Brak odpowiedzi AI";
 
     // =========================
-    // IMAGE GENERATION
+    // IMAGE
     // =========================
 
     let generatedImage =
@@ -367,35 +320,33 @@ ${conversation}
 
       const imagePrompt = `
 
-Fotorealistyczna wizualizacja kuchni premium.
+Fotorealistyczna kuchnia premium.
 
-UWAGA:
-- wizualizacja MUSI być zgodna z wymaganiami klienta,
-- uwzględnij opis klienta,
+BARDZO WAŻNE:
+
 - zachowaj realizm,
-- nowoczesny styl architektoniczny,
-- premium interior design,
-- ultra realistic,
+- poprawne proporcje,
+- poprawne głębokości szafek,
+- realistyczne narożniki,
+- brak pustych przestrzeni,
+- logiczna zabudowa,
+- kuchnia ma wyglądać jak realny projekt stolarski,
 - cinematic lighting,
-- realistic materials,
-- luxury kitchen,
-- photorealistic.
+- ultra realistic,
+- photorealistic,
+- luxury kitchen.
 
-AKTUALNY PROJEKT KUCHNI
-ORAZ OSTATNIE POPRAWKI KLIENTA:
+Jeśli klient chce poprawki:
+- zmień tylko wskazane elementy,
+- zachowaj resztę projektu.
 
-CAŁA HISTORIA:
+ROZMOWA:
 
 ${conversation}
 
-OSTATNIA WIADOMOŚĆ KLIENTA:
+OSTATNIA WIADOMOŚĆ:
 
 ${message}
-
-UWAGA:
-Jeśli klient chce poprawić istniejącą wizualizację,
-zmień TYLKO wskazane elementy,
-a resztę projektu zachowaj.
 
 `;
 
@@ -443,7 +394,7 @@ ${aiReply}
 
 ---
 
-# SZACUNKOWA WYCENA MEBLI
+# SZACUNKOWA WYCENA
 
 NETTO:
 ${estimate.netto} zł
@@ -453,16 +404,12 @@ ${estimate.brutto} zł
 
 AGD wyceniane osobno.
 
-Jeśli chcesz:
-- zmienić układ,
-- poprawić kolory,
-- zmienić styl,
-- dodać wyspę,
-- zmienić materiały,
-- poprawić oświetlenie,
-- stworzyć nową wersję,
-
-po prostu napisz co zmieniamy 🙂
+Możesz dalej:
+- poprawiać projekt,
+- zmieniać materiały,
+- zmieniać kolory,
+- edytować układ,
+- poprawiać wizualizację.
 
 `;
 

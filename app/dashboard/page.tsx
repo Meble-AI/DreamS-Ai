@@ -731,28 +731,41 @@ export default function Home() {
             gap-4
           ">
 
-            <input
-              value={message}
-              onChange={(e) =>
-                setMessage(
-                  e.target.value
-                )
-              }
-              placeholder="
-                Opisz swoją kuchnię premium...
-              "
-              className="
-                flex-1
-                p-6
-                rounded-3xl
-                bg-black/30
-                border
-                border-white/10
-                text-white
-                outline-none
-                text-lg
-              "
-            />
+<input
+  value={message}
+
+  onChange={(e) =>
+    setMessage(
+      e.target.value
+    )
+  }
+
+  onKeyDown={(e) => {
+
+    if (
+      e.key === "Enter"
+    ) {
+
+      sendMessage();
+    }
+  }}
+
+  placeholder="
+    Opisz swoją kuchnię premium...
+  "
+
+  className="
+    flex-1
+    p-6
+    rounded-3xl
+    bg-black/30
+    border
+    border-white/10
+    text-white
+    outline-none
+    text-lg
+  "
+/>
 
             <button
 
