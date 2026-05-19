@@ -4,6 +4,9 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
 export default function Home() {
 
   const [message, setMessage] =
@@ -132,6 +135,69 @@ export default function Home() {
     } catch (err) {
 
       console.log(err);
+    }
+  }
+
+  async function generatePDF() {
+
+    try {
+
+      const element =
+        document.body;
+
+      const canvas =
+        await html2canvas(
+          element
+        );
+
+      const data =
+        canvas.toDataURL(
+          "image/png"
+        );
+
+      const pdf =
+        new jsPDF({
+
+          orientation:
+            "portrait",
+
+          unit: "px",
+
+          format:
+            "a4",
+        });
+
+      const width =
+        pdf.internal.pageSize.getWidth();
+
+      const height =
+        (canvas.height * width)
+        / canvas.width;
+
+      pdf.addImage(
+
+        data,
+
+        "PNG",
+
+        0,
+        0,
+
+        width,
+        height
+      );
+
+      pdf.save(
+        "DreamS-AI-Projekt.pdf"
+      );
+
+    } catch (err) {
+
+      console.log(err);
+
+      alert(
+        "Błąd generowania PDF"
+      );
     }
   }
 
@@ -420,6 +486,7 @@ export default function Home() {
           <div className="
             flex
             gap-4
+            flex-wrap
           ">
 
             <button
@@ -442,6 +509,68 @@ export default function Home() {
               "
             >
               Moje projekty
+            </button>
+
+            <button
+
+              onClick={() => {
+
+                const lastImage =
+
+                  [...chat]
+                    .reverse()
+                    .find(
+                      (item) =>
+                        item.generatedImage
+                    );
+
+                if (!lastImage)
+                  return;
+
+                const link =
+                  document.createElement("a");
+
+                link.href =
+                  `data:image/png;base64,${lastImage.generatedImage}`;
+
+                link.download =
+                  "DreamS-AI-Kuchnia.png";
+
+                link.click();
+              }}
+
+              className="
+                backdrop-blur-xl
+                bg-white/10
+                hover:bg-white/20
+                transition
+                px-6
+                py-4
+                rounded-2xl
+                font-bold
+                shadow-lg
+              "
+            >
+              Pobierz PNG
+            </button>
+
+            <button
+
+              onClick={generatePDF}
+
+              className="
+                backdrop-blur-xl
+                bg-white/10
+                hover:bg-white/20
+                transition
+                px-6
+                py-4
+                rounded-2xl
+                font-bold
+                shadow-lg
+              "
+            >
+              Pobierz PDF
             </button>
 
             <button
