@@ -15,8 +15,11 @@ export default function Home() {
   const [chat, setChat] =
     useState<any[]>([]);
 
-  const [loadedProject, setLoadedProject] =
-    useState(false);
+  const [projectMemory, setProjectMemory] =
+    useState<any>(null);
+
+  const [projectId, setProjectId] =
+    useState<string | null>(null);
 
   const [loading, setLoading] =
     useState(false);
@@ -36,9 +39,95 @@ export default function Home() {
   const [email, setEmail] =
     useState("");
 
-  /* AUTH + LOAD PROJECT */
-
   useEffect(() => {
+
+    async function loadProject() {
+
+      try {
+
+        const params =
+          new URLSearchParams(
+            window.location.search
+          );
+
+        const currentProjectId =
+          params.get("project");
+
+        if (
+          !currentProjectId
+        ) return;
+
+        setProjectId(
+          currentProjectId
+        );
+
+        const { data } =
+          await supabase
+
+            .from("projects")
+
+            .select("*")
+
+            .eq(
+              "id",
+              currentProjectId
+            )
+
+            .single();
+
+        if (data) {
+
+          if (
+            data.conversation
+          ) {
+
+            setChat(
+              data.conversation
+            );
+          }
+
+          if (
+            data.memory
+          ) {
+
+            setProjectMemory(
+              data.memory
+            );
+          }
+
+          if (
+            data.name
+          ) {
+
+            setName(
+              data.name
+            );
+          }
+
+          if (
+            data.phone
+          ) {
+
+            setPhone(
+              data.phone
+            );
+          }
+
+          if (
+            data.city
+          ) {
+
+            setCity(
+              data.city
+            );
+          }
+        }
+
+      } catch (err) {
+
+        console.log(err);
+      }
+    }
 
     async function getUser() {
 
@@ -46,16 +135,8 @@ export default function Home() {
 
         const {
           data,
-          error,
         } =
           await supabase.auth.getUser();
-
-        if (error) {
-
-          console.log(error);
-
-          return;
-        }
 
         if (
           data?.user?.email
@@ -72,174 +153,118 @@ export default function Home() {
       }
     }
 
-    async function loadProject() {
-
-      try {
-
-        const params =
-          new URLSearchParams(
-            window.location.search
-          );
-
-        const projectId =
-          params.get("project");
-
-        if (!projectId)
-          return;
-
-        const { data } =
-          await supabase
-
-            .from("projects")
-
-            .select("*")
-
-            .eq(
-              "id",
-              projectId
-            )
-
-            .single();
-
-        if (
-          data?.conversation
-        ) {
-
-          setChat(
-            data.conversation
-          );
-
-          setLoadedProject(true);
-        }
-
-      } catch (err) {
-
-        console.log(err);
-      }
-    }
-
-    getUser();
     loadProject();
+    getUser();
 
   }, []);
 
-  async function logout() {
+  async function saveProject(
+    updatedChat: any[],
+    memory: any,
+    previewImage?: string
+  ) {
 
     try {
 
-      await supabase.auth.signOut();
+      // UPDATE EXISTING PROJECT
 
-      window.location.href =
-        "/login";
+      if (projectId) {
 
-    } catch (err) {
+        await supabase
 
-      console.log(err);
-    }
-  }
+          .from("projects")
 
-  async function generatePDF() {
+          .update({
 
-    try {
+            conversation:
+              updatedChat,
 
-      const element =
-        document.body;
+            memory,
 
-      const canvas =
-        await html2canvas(
-          element
-        );
+            image_url:
+              previewImage,
 
-      const data =
-        canvas.toDataURL(
-          "image/png"
-        );
+            updated_at:
+              new Date()
+                .toISOString(),
+          })
 
-      const pdf =
-        new jsPDF({
+          .eq(
+            "id",
+            projectId
+          );
 
-          orientation:
-            "portrait",
+        return;
+      }
 
-          unit: "px",
+      // CREATE NEW PROJECT
 
-          format:
-            "a4",
-        });
-
-      const width =
-        pdf.internal.pageSize.getWidth();
-
-      const height =
-        (canvas.height * width)
-        / canvas.width;
-
-      pdf.addImage(
-
+      const {
         data,
+      } =
+        await supabase
 
-        "PNG",
+          .from("projects")
 
-        0,
-        0,
+          .insert([
 
-        width,
-        height
-      );
+            {
+              user_email:
+                email,
 
-      pdf.save(
-        "DreamS-AI-Projekt.pdf"
-      );
+              prompt:
+                message,
+
+              image_url:
+                previewImage,
+
+              conversation:
+                updatedChat,
+
+              memory,
+
+              name,
+              phone,
+              city,
+            },
+          ])
+
+          .select()
+
+          .single();
+
+      if (
+        data?.id
+      ) {
+
+        setProjectId(
+          data.id
+        );
+
+        window.history.replaceState(
+
+          {},
+
+          "",
+
+          `/dashboard?project=${data.id}`
+        );
+      }
 
     } catch (err) {
 
-      console.log(err);
-
-      alert(
-        "Błąd generowania PDF"
+      console.log(
+        "SAVE ERROR:",
+        err
       );
     }
   }
 
   async function sendMessage() {
 
-    if (loading) return;
-
-    if (!name.trim()) {
-
-      alert(
-        "Podaj imię"
-      );
-
-      return;
-    }
-
-    if (!phone.trim()) {
-
-      alert(
-        "Podaj telefon"
-      );
-
-      return;
-    }
-
-    if (!city.trim()) {
-
-      alert(
-        "Podaj miejscowość"
-      );
-
-      return;
-    }
-
-    if (!message.trim()) {
-
-      alert(
-        "Wpisz wiadomość"
-      );
-
-      return;
-    }
+    if (
+      !message.trim()
+    ) return;
 
     setLoading(true);
 
@@ -260,14 +285,18 @@ export default function Home() {
             body: JSON.stringify({
 
               message,
+
               history: chat,
+
+              memory:
+                projectMemory,
+
+              image,
 
               name,
               phone,
               city,
               email,
-
-              image,
             }),
           }
         );
@@ -275,7 +304,9 @@ export default function Home() {
       const data =
         await res.json();
 
-      if (!data.success) {
+      if (
+        !data.success
+      ) {
 
         alert(
           "Błąd AI"
@@ -296,6 +327,12 @@ export default function Home() {
 
         generatedImage:
           data.generatedImage,
+
+        generatedImages:
+          data.generatedImages || [],
+
+        floorPlan:
+          data.floorPlan || null,
       };
 
       const updatedChat = [
@@ -308,44 +345,23 @@ export default function Home() {
         updatedChat
       );
 
-      /* SAVE PROJECT */
-
       if (
-        email &&
-        data.generatedImage
+        data.memory
       ) {
 
-        try {
-
-          await supabase
-
-            .from("projects")
-
-            .insert([
-
-              {
-                user_email:
-                  email,
-
-                prompt:
-                  message,
-
-                image_url:
-                  data.generatedImage,
-
-                conversation:
-                  updatedChat,
-              },
-            ]);
-
-        } catch (err) {
-
-          console.log(
-            "Błąd zapisu projektu",
-            err
-          );
-        }
+        setProjectMemory(
+          data.memory
+        );
       }
+
+      await saveProject(
+
+        updatedChat,
+
+        data.memory,
+
+        data.generatedImage
+      );
 
       setMessage("");
       setImage(null);
@@ -354,13 +370,62 @@ export default function Home() {
 
       console.log(err);
 
-      alert(
-        "Błąd połączenia z AI"
-      );
-
     } finally {
 
       setLoading(false);
+    }
+  }
+
+  async function generatePDF() {
+
+    try {
+
+      const canvas =
+        await html2canvas(
+          document.body
+        );
+
+      const imgData =
+        canvas.toDataURL(
+          "image/png"
+        );
+
+      const pdf =
+        new jsPDF(
+          "p",
+          "mm",
+          "a4"
+        );
+
+      const width =
+        pdf.internal
+          .pageSize
+          .getWidth();
+
+      const height =
+        (canvas.height * width)
+        / canvas.width;
+
+      pdf.addImage(
+
+        imgData,
+
+        "PNG",
+
+        0,
+        0,
+
+        width,
+        height
+      );
+
+      pdf.save(
+        "DreamS-AI.pdf"
+      );
+
+    } catch (err) {
+
+      console.log(err);
     }
   }
 
@@ -370,79 +435,23 @@ export default function Home() {
       min-h-screen
       bg-black
       text-white
-      relative
-      overflow-hidden
+      p-6
     ">
 
-      {/* BACKGROUND */}
-
-      <div
-        className="
-          absolute
-          inset-0
-          opacity-10
-          bg-cover
-          bg-center
-          bg-no-repeat
-        "
-        style={{
-          backgroundImage:
-            "url('/bg.jpg')",
-        }}
-      />
-
-      {/* GLOW */}
-
       <div className="
-        absolute
-        top-0
-        left-0
-        w-[700px]
-        h-[700px]
-        bg-blue-600/20
-        blur-[180px]
-        rounded-full
-      " />
-
-      <div className="
-        absolute
-        bottom-0
-        right-0
-        w-[600px]
-        h-[600px]
-        bg-purple-600/20
-        blur-[180px]
-        rounded-full
-      " />
-
-      <div className="
-        absolute
-        inset-0
-        bg-gradient-to-br
-        from-black
-        via-black/90
-        to-blue-950/40
-      " />
-
-      <div className="
-        relative
-        z-10
         max-w-7xl
         mx-auto
-        p-6
-        lg:p-10
       ">
 
-        {/* TOPBAR */}
+        {/* TOP */}
 
         <div className="
           flex
-          flex-col
-          lg:flex-row
-          lg:items-center
-          lg:justify-between
-          gap-6
+          justify-between
+          items-center
           mb-10
+          gap-6
+          flex-wrap
         ">
 
           <div>
@@ -452,34 +461,15 @@ export default function Home() {
               alt="DreamS AI"
               width={220}
               height={80}
-              priority
-              style={{
-                width: "auto",
-                height: "auto",
-              }}
-              className="
-                mb-4
-              "
             />
 
             <h1 className="
               text-5xl
-              lg:text-6xl
               font-bold
-              leading-tight
-            ">
-              DreamS AI Studio
-            </h1>
-
-            <p className="
-              text-gray-400
-              text-xl
               mt-4
-              max-w-2xl
             ">
-              Projektuj meble premium
-              z pomocą sztucznej inteligencji.
-            </p>
+              DreamS AI
+            </h1>
 
           </div>
 
@@ -497,61 +487,14 @@ export default function Home() {
               }
 
               className="
-                backdrop-blur-xl
-                bg-blue-600/80
-                hover:bg-blue-600
-                transition
+                bg-blue-600
                 px-6
                 py-4
                 rounded-2xl
                 font-bold
-                shadow-lg
               "
             >
-              Moje projekty
-            </button>
-
-            <button
-
-              onClick={() => {
-
-                const lastImage =
-
-                  [...chat]
-                    .reverse()
-                    .find(
-                      (item) =>
-                        item.generatedImage
-                    );
-
-                if (!lastImage)
-                  return;
-
-                const link =
-                  document.createElement("a");
-
-                link.href =
-                  `data:image/png;base64,${lastImage.generatedImage}`;
-
-                link.download =
-                  "DreamS-AI-Kuchnia.png";
-
-                link.click();
-              }}
-
-              className="
-                backdrop-blur-xl
-                bg-white/10
-                hover:bg-white/20
-                transition
-                px-6
-                py-4
-                rounded-2xl
-                font-bold
-                shadow-lg
-              "
-            >
-              Pobierz PNG
+              Projekty
             </button>
 
             <button
@@ -559,44 +502,58 @@ export default function Home() {
               onClick={generatePDF}
 
               className="
-                backdrop-blur-xl
-                bg-white/10
-                hover:bg-white/20
-                transition
+                bg-white
+                text-black
                 px-6
                 py-4
                 rounded-2xl
                 font-bold
-                shadow-lg
               "
             >
-              Pobierz PDF
-            </button>
-
-            <button
-
-              onClick={logout}
-
-              className="
-                backdrop-blur-xl
-                bg-red-600/80
-                hover:bg-red-600
-                transition
-                px-6
-                py-4
-                rounded-2xl
-                font-bold
-                shadow-lg
-              "
-            >
-              Wyloguj
+              PDF
             </button>
 
           </div>
 
         </div>
 
-        {/* USER DATA */}
+        {/* MEMORY */}
+
+        {projectMemory && (
+
+          <div className="
+            bg-white/5
+            border
+            border-white/10
+            rounded-3xl
+            p-6
+            mb-10
+          ">
+
+            <div className="
+              text-2xl
+              font-bold
+              mb-4
+            ">
+              Pamięć projektu
+            </div>
+
+            <pre className="
+              text-sm
+              overflow-auto
+              text-green-300
+            ">
+              {JSON.stringify(
+                projectMemory,
+                null,
+                2
+              )}
+            </pre>
+
+          </div>
+        )}
+
+        {/* USER */}
 
         <div className="
           grid
@@ -618,11 +575,6 @@ export default function Home() {
               p-5
               rounded-3xl
               bg-white/5
-              border
-              border-white/10
-              backdrop-blur-xl
-              outline-none
-              focus:border-green-500
             "
           />
 
@@ -638,11 +590,21 @@ export default function Home() {
               p-5
               rounded-3xl
               bg-white/5
-              border
-              border-white/10
-              backdrop-blur-xl
-              outline-none
-              focus:border-green-500
+            "
+          />
+
+          <input
+            placeholder="Miasto"
+            value={city}
+            onChange={(e) =>
+              setCity(
+                e.target.value
+              )
+            }
+            className="
+              p-5
+              rounded-3xl
+              bg-white/5
             "
           />
 
@@ -654,30 +616,7 @@ export default function Home() {
               p-5
               rounded-3xl
               bg-white/5
-              border
-              border-white/10
-              backdrop-blur-xl
               text-gray-400
-            "
-          />
-
-          <input
-            placeholder="Miejscowość"
-            value={city}
-            onChange={(e) =>
-              setCity(
-                e.target.value
-              )
-            }
-            className="
-              p-5
-              rounded-3xl
-              bg-white/5
-              border
-              border-white/10
-              backdrop-blur-xl
-              outline-none
-              focus:border-green-500
             "
           />
 
@@ -703,47 +642,37 @@ export default function Home() {
                 "
               >
 
+                {/* USER */}
+
                 <div className="
                   bg-white/5
-                  border
-                  border-white/10
-                  backdrop-blur-xl
-                  p-6
                   rounded-3xl
+                  p-6
                 ">
 
                   <div className="
-                    text-sm
                     text-gray-400
                     mb-3
                   ">
                     Klient
                   </div>
 
-                  <div className="
-                    whitespace-pre-wrap
-                    leading-8
-                  ">
+                  <div>
                     {item.user}
                   </div>
 
                 </div>
 
+                {/* AI */}
+
                 <div className="
-                  bg-gradient-to-br
-                  from-blue-600/80
-                  to-indigo-900/80
-                  border
-                  border-white/10
-                  backdrop-blur-xl
-                  p-6
+                  bg-blue-900/40
                   rounded-3xl
-                  shadow-2xl
+                  p-6
                 ">
 
                   <div className="
-                    text-sm
-                    text-blue-100
+                    text-blue-200
                     mb-3
                   ">
                     DreamS AI
@@ -751,29 +680,106 @@ export default function Home() {
 
                   <div className="
                     whitespace-pre-wrap
-                    leading-8
                   ">
                     {item.ai}
                   </div>
 
-                  {item.generatedImage && (
+                  {/* IMAGES */}
+
+                  {item.generatedImages?.length > 0 && (
 
                     <div className="
+                      grid
+                      md:grid-cols-3
+                      gap-6
                       mt-8
                     ">
 
+                      {item.generatedImages.map(
+                        (
+                          img: string,
+                          imgIndex: number
+                        ) => (
+
+                          <div
+                            key={imgIndex}
+                            className="
+                              space-y-4
+                            "
+                          >
+
+                            <img
+                              src={`data:image/png;base64,${img}`}
+                              alt=""
+                              className="
+                                rounded-3xl
+                                shadow-2xl
+                              "
+                            />
+
+                            <button
+
+                              onClick={() => {
+
+                                const link =
+                                  document.createElement(
+                                    "a"
+                                  );
+
+                                link.href =
+                                  `data:image/png;base64,${img}`;
+
+                                link.download =
+                                  `DreamS-AI-${imgIndex + 1}.png`;
+
+                                link.click();
+                              }}
+
+                              className="
+                                w-full
+                                bg-white
+                                text-black
+                                py-3
+                                rounded-2xl
+                                font-bold
+                              "
+                            >
+                              Pobierz
+                            </button>
+
+                          </div>
+                        )
+                      )}
+
+                    </div>
+                  )}
+
+                  {/* FLOORPLAN */}
+
+                  {item.floorPlan && (
+
+                    <div className="
+                      mt-10
+                    ">
+
+                      <div className="
+                        text-2xl
+                        font-bold
+                        mb-4
+                      ">
+                        📐 Rzut 2D
+                      </div>
+
                       <img
-                        src={`data:image/png;base64,${item.generatedImage}`}
-                        alt="wizualizacja"
+                        src={`data:image/png;base64,${item.floorPlan}`}
+                        alt=""
                         className="
                           rounded-3xl
-                          w-full
-                          shadow-2xl
+                          bg-white
                         "
                       />
 
                     </div>
-
                   )}
 
                 </div>
@@ -782,114 +788,33 @@ export default function Home() {
             )
           )}
 
-          {loading && (
-
-            <div className="
-              bg-white/5
-              border
-              border-white/10
-              backdrop-blur-xl
-              rounded-3xl
-              p-12
-              flex
-              flex-col
-              items-center
-              justify-center
-              gap-6
-            ">
-
-              <div className="
-                w-20
-                h-20
-                border-4
-                border-white
-                border-t-transparent
-                rounded-full
-                animate-spin
-              " />
-
-              <div className="
-                text-3xl
-                font-bold
-              ">
-                DreamS AI pracuje...
-              </div>
-
-              <div className="
-                text-gray-400
-                text-lg
-              ">
-                Tworzenie wizualizacji i wyceny
-              </div>
-
-            </div>
-
-          )}
-
         </div>
 
         {/* INPUT */}
 
         <div className="
           bg-white/5
-          border
-          border-white/10
-          backdrop-blur-xl
-          rounded-[40px]
-          p-5
-          shadow-2xl
+          rounded-3xl
+          p-6
         ">
 
-          <label
-            className="
-              flex
-              items-center
-              justify-center
-              gap-3
-              p-5
-              rounded-3xl
-              border
-              border-dashed
-              border-white/20
-              bg-black/20
-              backdrop-blur-xl
-              cursor-pointer
-              hover:border-green-500
-              transition
-              text-gray-300
-              mb-5
-            "
-          >
+          <input
 
-            <span className="
-              text-2xl
-            ">
-              📎
-            </span>
+            type="file"
 
-            <span>
-              {
-                image
-                  ? "Zdjęcie zostało dodane"
-                  : "Dodaj zdjęcie inspiracji lub projektu"
-              }
-            </span>
+            onChange={(e) => {
 
-            <input
-              type="file"
-              hidden
+              const file =
+                e.target.files?.[0];
 
-              onChange={(e) => {
+              if (!file)
+                return;
 
-                const file =
-                  e.target.files?.[0];
+              const reader =
+                new FileReader();
 
-                if (!file) return;
-
-                const reader =
-                  new FileReader();
-
-                reader.onloadend = () => {
+              reader.onloadend =
+                () => {
 
                   setImage(
                     String(
@@ -898,22 +823,23 @@ export default function Home() {
                   );
                 };
 
-                reader.readAsDataURL(
-                  file
-                );
-              }}
-            />
+              reader.readAsDataURL(
+                file
+              );
+            }}
 
-          </label>
+            className="
+              mb-6
+            "
+          />
 
           <div className="
             flex
-            flex-col
-            lg:flex-row
             gap-4
           ">
 
             <input
+
               value={message}
 
               onChange={(e) =>
@@ -933,7 +859,7 @@ export default function Home() {
               }}
 
               placeholder="
-                Opisz swoją kuchnię premium...
+                Opisz swoją kuchnię...
               "
 
               className="
@@ -941,11 +867,6 @@ export default function Home() {
                 p-6
                 rounded-3xl
                 bg-black/30
-                border
-                border-white/10
-                text-white
-                outline-none
-                text-lg
               "
             />
 
@@ -955,26 +876,18 @@ export default function Home() {
 
               disabled={loading}
 
-              className={`
+              className="
+                bg-white
+                text-black
                 px-10
-                py-6
                 rounded-3xl
                 font-bold
-                text-lg
-                transition
-                shadow-2xl
-
-                ${
-                  loading
-                    ? "bg-gray-700 cursor-not-allowed"
-                    : "bg-white text-black hover:scale-105"
-                }
-              `}
+              "
             >
 
               {
                 loading
-                  ? "AI pracuje..."
+                  ? "AI..."
                   : "Wyślij"
               }
 
