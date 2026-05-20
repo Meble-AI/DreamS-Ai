@@ -21,6 +21,9 @@ export default function Home() {
   const [projectId, setProjectId] =
     useState<string | null>(null);
 
+  const [projectStatus, setProjectStatus] =
+    useState("Konsultacja");
+
   const [loading, setLoading] =
     useState(false);
 
@@ -96,6 +99,15 @@ export default function Home() {
           }
 
           if (
+            data.status
+          ) {
+
+            setProjectStatus(
+              data.status
+            );
+          }
+
+          if (
             data.name
           ) {
 
@@ -158,15 +170,51 @@ export default function Home() {
 
   }, []);
 
+  function detectProjectStatus(
+    aiReply: string
+  ) {
+
+    const lower =
+      aiReply.toLowerCase();
+
+    if (
+      lower.includes(
+        "wizualizacja"
+      )
+    ) {
+
+      return "Projektowanie";
+    }
+
+    if (
+      lower.includes(
+        "popraw"
+      )
+    ) {
+
+      return "Poprawki";
+    }
+
+    if (
+      lower.includes(
+        "gotowy"
+      )
+    ) {
+
+      return "Gotowe";
+    }
+
+    return "Konsultacja";
+  }
+
   async function saveProject(
     updatedChat: any[],
     memory: any,
-    previewImage?: string
+    previewImage?: string,
+    status?: string
   ) {
 
     try {
-
-      // UPDATE EXISTING PROJECT
 
       if (projectId) {
 
@@ -184,6 +232,8 @@ export default function Home() {
             image_url:
               previewImage,
 
+            status,
+
             updated_at:
               new Date()
                 .toISOString(),
@@ -196,8 +246,6 @@ export default function Home() {
 
         return;
       }
-
-      // CREATE NEW PROJECT
 
       const {
         data,
@@ -222,6 +270,8 @@ export default function Home() {
                 updatedChat,
 
               memory,
+
+              status,
 
               name,
               phone,
@@ -305,10 +355,13 @@ export default function Home() {
         await res.json();
 
       if (
-        !data.success
+        data?.success === false
       ) {
 
+        console.log(data);
+
         alert(
+          data?.error ||
           "Błąd AI"
         );
 
@@ -316,6 +369,15 @@ export default function Home() {
 
         return;
       }
+
+      const detectedStatus =
+        detectProjectStatus(
+          data.reply
+        );
+
+      setProjectStatus(
+        detectedStatus
+      );
 
       const newItem = {
 
@@ -354,14 +416,26 @@ export default function Home() {
         );
       }
 
-      await saveProject(
+      try {
 
-        updatedChat,
+        await saveProject(
 
-        data.memory,
+          updatedChat,
 
-        data.generatedImage
-      );
+          data.memory,
+
+          data.generatedImage,
+
+          detectedStatus
+        );
+
+      } catch (saveError) {
+
+        console.log(
+          "SAVE PROJECT ERROR:",
+          saveError
+        );
+      }
 
       setMessage("");
       setImage(null);
@@ -471,6 +545,36 @@ export default function Home() {
               DreamS AI
             </h1>
 
+            <div className="
+              mt-4
+              inline-flex
+              items-center
+              gap-3
+              bg-blue-600/20
+              border
+              border-blue-500/30
+              px-5
+              py-3
+              rounded-2xl
+            ">
+
+              <div className="
+                w-3
+                h-3
+                rounded-full
+                bg-green-400
+              " />
+
+              <div className="
+                font-semibold
+              ">
+                Status:
+                {" "}
+                {projectStatus}
+              </div>
+
+            </div>
+
           </div>
 
           <div className="
@@ -553,75 +657,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* USER */}
-
-        <div className="
-          grid
-          md:grid-cols-2
-          lg:grid-cols-4
-          gap-4
-          mb-10
-        ">
-
-          <input
-            placeholder="Imię"
-            value={name}
-            onChange={(e) =>
-              setName(
-                e.target.value
-              )
-            }
-            className="
-              p-5
-              rounded-3xl
-              bg-white/5
-            "
-          />
-
-          <input
-            placeholder="Telefon"
-            value={phone}
-            onChange={(e) =>
-              setPhone(
-                e.target.value
-              )
-            }
-            className="
-              p-5
-              rounded-3xl
-              bg-white/5
-            "
-          />
-
-          <input
-            placeholder="Miasto"
-            value={city}
-            onChange={(e) =>
-              setCity(
-                e.target.value
-              )
-            }
-            className="
-              p-5
-              rounded-3xl
-              bg-white/5
-            "
-          />
-
-          <input
-            placeholder="Email"
-            value={email}
-            disabled
-            className="
-              p-5
-              rounded-3xl
-              bg-white/5
-              text-gray-400
-            "
-          />
-
-        </div>
-
         {/* CHAT */}
 
         <div className="
@@ -642,8 +677,6 @@ export default function Home() {
                 "
               >
 
-                {/* USER */}
-
                 <div className="
                   bg-white/5
                   rounded-3xl
@@ -663,8 +696,6 @@ export default function Home() {
 
                 </div>
 
-                {/* AI */}
-
                 <div className="
                   bg-blue-900/40
                   rounded-3xl
@@ -683,8 +714,6 @@ export default function Home() {
                   ">
                     {item.ai}
                   </div>
-
-                  {/* IMAGES */}
 
                   {item.generatedImages?.length > 0 && (
 
@@ -717,44 +746,12 @@ export default function Home() {
                               "
                             />
 
-                            <button
-
-                              onClick={() => {
-
-                                const link =
-                                  document.createElement(
-                                    "a"
-                                  );
-
-                                link.href =
-                                  `data:image/png;base64,${img}`;
-
-                                link.download =
-                                  `DreamS-AI-${imgIndex + 1}.png`;
-
-                                link.click();
-                              }}
-
-                              className="
-                                w-full
-                                bg-white
-                                text-black
-                                py-3
-                                rounded-2xl
-                                font-bold
-                              "
-                            >
-                              Pobierz
-                            </button>
-
                           </div>
                         )
                       )}
 
                     </div>
                   )}
-
-                  {/* FLOORPLAN */}
 
                   {item.floorPlan && (
 
@@ -833,6 +830,51 @@ export default function Home() {
             "
           />
 
+          {loading && (
+
+            <div className="
+              mb-6
+              bg-blue-500/10
+              border
+              border-blue-500/20
+              rounded-3xl
+              p-5
+              flex
+              items-center
+              gap-4
+            ">
+
+              <div className="
+                w-6
+                h-6
+                border-2
+                border-blue-400
+                border-t-transparent
+                rounded-full
+                animate-spin
+              " />
+
+              <div>
+
+                <div className="
+                  font-bold
+                  text-blue-300
+                ">
+                  DreamS AI pracuje...
+                </div>
+
+                <div className="
+                  text-sm
+                  text-gray-400
+                ">
+                  Tworzenie projektu i wizualizacji może potrwać chwilę.
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
           <div className="
             flex
             gap-4
@@ -882,14 +924,44 @@ export default function Home() {
                 px-10
                 rounded-3xl
                 font-bold
+                min-w-[220px]
+                flex
+                items-center
+                justify-center
               "
             >
 
-              {
-                loading
-                  ? "AI..."
-                  : "Wyślij"
-              }
+              <div className="
+                flex
+                items-center
+                gap-3
+              ">
+
+                {loading && (
+
+                  <div className="
+                    w-5
+                    h-5
+                    border-2
+                    border-black
+                    border-t-transparent
+                    rounded-full
+                    animate-spin
+                  " />
+
+                )}
+
+                <span>
+
+                  {
+                    loading
+                      ? "DreamS AI projektuje..."
+                      : "Wyślij"
+                  }
+
+                </span>
+
+              </div>
 
             </button>
 
