@@ -332,7 +332,8 @@ export default function Home() {
                 "application/json",
             },
 
-            body: JSON.stringify({
+            image,
+            images,
 
               message,
 
@@ -438,7 +439,7 @@ export default function Home() {
       }
 
       setMessage("");
-      setImage(null);
+      setImages([]);
 
     } catch (err) {
 
@@ -851,38 +852,62 @@ export default function Home() {
 
           <input
 
-            type="file"
+  type="file"
 
-            onChange={(e) => {
+  multiple
 
-              const file =
-                e.target.files?.[0];
+  accept="image/*"
 
-              if (!file)
-                return;
+  onChange={async (e) => {
 
-              const reader =
-                new FileReader();
+    const files =
+      Array.from(
+        e.target.files || []
+      );
 
-              reader.onloadend =
-                () => {
+    if (!files.length)
+      return;
 
-                  setImage(
-                    String(
-                      reader.result
-                    )
-                  );
-                };
+    const converted =
+      await Promise.all(
 
-              reader.readAsDataURL(
-                file
-              );
-            }}
+        files.map(
+          (file) => {
 
-            className="
-              mb-6
-            "
-          />
+            return new Promise<string>(
+              (resolve) => {
+
+                const reader =
+                  new FileReader();
+
+                reader.onloadend =
+                  () => {
+
+                    resolve(
+                      String(
+                        reader.result
+                      )
+                    );
+                  };
+
+                reader.readAsDataURL(
+                  file
+                );
+              }
+            );
+          }
+        )
+      );
+
+    setImages(
+      converted
+    );
+  }}
+
+  className="
+    mb-6
+  "
+/>
 
           {loading && (
 
