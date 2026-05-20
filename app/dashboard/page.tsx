@@ -746,6 +746,38 @@ export default function Home() {
                               "
                             />
 
+                            <button
+
+                              onClick={() => {
+
+                                const link =
+                                  document.createElement(
+                                    "a"
+                                  );
+
+                                link.href =
+                                  `data:image/png;base64,${img}`;
+
+                                link.download =
+                                  `DreamS-AI-${imgIndex + 1}.png`;
+
+                                link.click();
+                              }}
+
+                              className="
+                                w-full
+                                bg-white
+                                text-black
+                                py-3
+                                rounded-2xl
+                                font-bold
+                                hover:scale-[1.02]
+                                transition
+                              "
+                            >
+                              Pobierz wizualizację
+                            </button>
+
                           </div>
                         )
                       )}
