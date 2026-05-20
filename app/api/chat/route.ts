@@ -289,6 +289,25 @@ ${message}
       ||
 
       lowerConversation.includes("edytuj")
+      ||
+
+lowerConversation.includes("zmień")
+
+||
+
+lowerConversation.includes("dodaj")
+
+||
+
+lowerConversation.includes("usuń")
+
+||
+
+lowerConversation.includes("powiększ")
+
+||
+
+lowerConversation.includes("pomniejsz")
 
       ||
 
@@ -542,6 +561,13 @@ BARDZO WAŻNE:
 - zachowaj poprawne przejścia,
 - zachowaj poprawne proporcje,
 - projektuj jak profesjonalny stolarz premium.
+Jeśli projekt już istnieje:
+- NIE twórz nowej kuchni,
+- NIE resetuj projektu,
+- traktuj rozmowę jako edycję,
+- zachowaj wcześniejsze ustalenia,
+- zachowaj wcześniejszy układ,
+- poprawiaj istniejący projekt.
 
 Jeśli klient chce poprawki:
 - zmieniaj tylko wskazane elementy,
@@ -674,7 +700,30 @@ BARDZO WAŻNE:
 Jeśli klient chce poprawki:
 - zmień tylko wskazane elementy,
 - zachowaj resztę projektu.
+AKTUALNY PROJEKT:
 
+Jeśli wcześniej została wygenerowana kuchnia:
+- traktuj ją jako istniejący projekt,
+- zachowaj układ kuchni,
+- zachowaj rozmieszczenie szafek,
+- zachowaj większość projektu,
+- zmień WYŁĄCZNIE elementy wskazane przez klienta,
+- NIE generuj nowej kuchni,
+- NIE zmieniaj całego układu,
+- edytuj istniejący projekt jak profesjonalny projektant wnętrz.
+
+PRZYKŁAD:
+Jeśli klient pisze:
+- "zmień blat"
+to zmieniasz tylko blat.
+
+Jeśli klient pisze:
+- "dodaj witryny"
+to dodajesz tylko witryny.
+
+Jeśli klient pisze:
+- "powiększ wyspę"
+to zmieniasz tylko wyspę.
 ROZMOWA:
 
 ${conversation}
