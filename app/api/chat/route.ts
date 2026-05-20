@@ -89,6 +89,86 @@ export async function POST(
       image,
     } = body;
 
+    // =========================
+    // ROOM VISION ANALYSIS
+    // =========================
+
+    let roomAnalysis = "";
+
+    if (image) {
+
+      try {
+
+        const vision =
+          await openai.chat.completions.create({
+
+            model:
+              "gpt-4.1-mini",
+
+            messages: [
+
+              {
+                role: "system",
+
+                content: `
+
+Jesteś profesjonalnym projektantem kuchni premium.
+
+Przeanalizuj przesłany rzut lub zdjęcie pomieszczenia.
+
+Określ:
+- układ pomieszczenia,
+- ściany,
+- okna,
+- drzwi,
+- możliwości zabudowy,
+- ergonomię,
+- ograniczenia projektowe,
+- najlepszy układ kuchni.
+
+Odpowiadaj bardzo konkretnie.
+
+`,
+              },
+
+              {
+                role: "user",
+
+                content: [
+
+                  {
+                    type: "text",
+
+                    text: `
+Przeanalizuj to pomieszczenie pod projekt kuchni premium.
+`,
+                  },
+
+                  {
+                    type: "image_url",
+
+                    image_url: {
+                      url: image,
+                    },
+                  },
+                ],
+              },
+            ],
+          });
+
+        roomAnalysis =
+          vision.choices[0]
+            .message.content || "";
+
+      } catch (visionError) {
+
+        console.log(
+          "VISION ERROR:",
+          visionError
+        );
+      }
+    }
+
     const conversation = [
 
       ...history.map(
@@ -172,7 +252,6 @@ ${message}
 
         : "premium",
 
-
       kolor_frontow:
 
         lowerConversation.includes("kaszmir")
@@ -189,7 +268,6 @@ ${message}
 
         : "premium neutral",
 
-
       blat:
 
         lowerConversation.includes("spiek")
@@ -202,7 +280,6 @@ ${message}
           ? "konglomerat"
 
         : "premium",
-
 
       uklad:
 
@@ -220,7 +297,6 @@ ${message}
 
         : "jednorzędowy",
 
-
       ergonomia: {
 
         trojkat_roboczy: true,
@@ -234,31 +310,26 @@ ${message}
         ergonomiczne_przejscia: true,
       },
 
-
       wysoka_zabudowa:
 
         lowerConversation.includes(
           "wysoka zabudowa"
         ),
 
-
       wyspa:
         lowerConversation.includes(
           "wyspa"
         ),
-
 
       witryny:
         lowerConversation.includes(
           "witry"
         ),
 
-
       led:
         lowerConversation.includes(
           "led"
         ),
-
 
       blum:
         lowerConversation.includes(
@@ -312,51 +383,117 @@ ${message}
     // PROJECT TRIGGER
     // =========================
 
-    const generateProject =
+const generateProject =
 
-      lowerConversation.includes(
-        "stwórz projekt"
-      )
+  lowerConversation.includes(
+    "stwórz projekt"
+  )
 
-      ||
+  ||
 
-      lowerConversation.includes(
-        "wygeneruj projekt"
-      )
+  lowerConversation.includes(
+    "wygeneruj projekt"
+  )
 
-      ||
+  ||
 
-      lowerConversation.includes(
-        "generuj wizualizację"
-      )
+  lowerConversation.includes(
+    "generuj wizualizację"
+  )
 
-      ||
+  ||
 
-      lowerConversation.includes(
-        "pokaż projekt"
-      )
+  lowerConversation.includes(
+    "pokaż projekt"
+  )
 
-      ||
+  ||
 
-      lowerConversation.includes(
-        "zrób wizualizację"
-      )
+  lowerConversation.includes(
+    "zrób wizualizację"
+  )
 
-      ||
+  ||
 
-      lowerConversation.includes(
-        "wizualizacja"
-      )
+  lowerConversation.includes(
+    "wizualizacja"
+  )
 
-      ||
+  ||
 
-      lowerConversation.includes(
-        "projekt gotowy"
-      )
+  lowerConversation.includes(
+    "projekt gotowy"
+  )
 
-      ||
+  ||
 
-      isEditingProject;
+  lowerConversation.includes(
+    "zmień"
+  )
+
+  ||
+
+  lowerConversation.includes(
+    "popraw"
+  )
+
+  ||
+
+  lowerConversation.includes(
+    "dodaj"
+  )
+
+  ||
+
+  lowerConversation.includes(
+    "usuń"
+  )
+
+  ||
+
+  lowerConversation.includes(
+    "edytuj"
+  )
+
+  ||
+
+  lowerConversation.includes(
+    "przesuń"
+  )
+
+  ||
+
+  lowerConversation.includes(
+    "powiększ"
+  )
+
+  ||
+
+  lowerConversation.includes(
+    "pomniejsz"
+  )
+
+  ||
+
+  lowerConversation.includes(
+    "inny kolor"
+  )
+
+  ||
+
+  lowerConversation.includes(
+    "zmień blat"
+  )
+
+  ||
+
+  lowerConversation.includes(
+    "zmień fronty"
+  )
+
+  ||
+
+  isEditingProject;
 
     // =========================
     // CONSULTATION
@@ -385,6 +522,7 @@ BARDZO WAŻNE:
 
 - analizuj pamięć projektu,
 - analizuj całą rozmowę,
+- analizuj rzut pomieszczenia,
 - nie pytaj drugi raz o to samo,
 - zadawaj maksymalnie 2 pytania,
 - prowadź klienta krok po kroku,
@@ -410,6 +548,10 @@ ${JSON.stringify(
   null,
   2
 )}
+
+ANALIZA POMIESZCZENIA:
+
+${roomAnalysis}
 
 BRAKUJĄCE INFORMACJE:
 
@@ -468,6 +610,10 @@ Jesteś elitarnym projektantem kuchni premium.
 BARDZO WAŻNE:
 
 - projektuj realistycznie,
+- analizuj rzut pomieszczenia,
+- respektuj ściany,
+- respektuj okna,
+- respektuj drzwi,
 - zachowaj ergonomię,
 - zachowaj poprawny trójkąt roboczy,
 - zachowaj logiczne przejścia,
@@ -477,11 +623,20 @@ BARDZO WAŻNE:
 - NIE zmieniaj całej kuchni bez potrzeby.
 
 Jeśli klient chce poprawki:
-- zmień TYLKO wskazane elementy,
+- zmień WYŁĄCZNIE wskazane elementy,
+- zachowaj resztę projektu,
+- zachowaj układ kuchni,
+- zachowaj wcześniejsze ustalenia,
 - zachowaj styl,
-- zachowaj układ,
-- zachowaj większość projektu,
-- nie generuj nowej kuchni.
+- zachowaj ergonomię,
+- nie projektuj nowej kuchni,
+- poprawiaj istniejący projekt jak prawdziwy projektant wnętrz.
+
+BARDZO WAŻNE:
+Jeśli klient pisze po wygenerowaniu projektu:
+- traktuj to jako edycję istniejącej kuchni,
+- nie zaczynaj projektu od nowa,
+- nanieś poprawki na aktualną wizualizację.
 
 `,
           },
@@ -498,6 +653,10 @@ ${JSON.stringify(
   null,
   2
 )}
+
+ANALIZA POMIESZCZENIA:
+
+${roomAnalysis}
 
 TRYB EDYCJI:
 ${isEditingProject ? "TAK" : "NIE"}
@@ -546,6 +705,34 @@ ${conversation}
       ) {
 
         const imagePrompt = `
+        BARDZO WAŻNE:
+
+- zachowaj istniejący projekt,
+- zmieniaj tylko wskazane elementy,
+- respektuj rzeczywisty układ pomieszczenia,
+- respektuj ściany,
+- respektuj okna,
+- respektuj drzwi,
+- projekt musi pasować do rzeczywistego rzutu,
+- zachowaj układ,
+- zachowaj ergonomię,
+- zachowaj realizm,
+- zachowaj poprawne proporcje,
+- zachowaj realistyczne odległości,
+- zachowaj realistyczną ergonomię,
+- zachowaj logiczną zabudowę,
+- nie generuj losowego układu,
+
+- jeśli klient chce poprawki:
+  - edytuj istniejący projekt,
+  - nie generuj nowej kuchni,
+  - zachowaj poprzedni układ,
+  - zmień tylko wskazane elementy,
+
+- realistyczna stolarka premium,
+- ultra realistic,
+- cinematic lighting,
+- photorealistic.
 
 Fotorealistyczna kuchnia premium.
 
@@ -560,6 +747,10 @@ ${JSON.stringify(
   2
 )}
 
+ROOM ANALYSIS:
+
+${roomAnalysis}
+
 TRYB EDYCJI:
 ${isEditingProject ? "TAK" : "NIE"}
 
@@ -567,12 +758,19 @@ BARDZO WAŻNE:
 
 - zachowaj istniejący projekt,
 - zmieniaj tylko wskazane elementy,
+- respektuj rzeczywisty układ pomieszczenia,
+- respektuj ściany,
+- respektuj okna,
+- respektuj drzwi,
+- projekt musi pasować do rzeczywistego rzutu,
 - zachowaj układ,
 - zachowaj ergonomię,
 - zachowaj realizm,
 - zachowaj poprawne proporcje,
 - zachowaj realistyczne odległości,
+- zachowaj realistyczną ergonomię,
 - zachowaj logiczną zabudowę,
+- nie generuj losowego układu,
 - realistyczna stolarka premium,
 - ultra realistic,
 - cinematic lighting,
@@ -638,6 +836,10 @@ ${JSON.stringify(
   2
 )}
 
+ROOM ANALYSIS:
+
+${roomAnalysis}
+
 TRYB EDYCJI:
 ${isEditingProject ? "TAK" : "NIE"}
 
@@ -645,6 +847,8 @@ BARDZO WAŻNE:
 
 - zachowaj ergonomię,
 - zachowaj poprawny trójkąt roboczy,
+- respektuj rzeczywisty układ pomieszczenia,
+- respektuj okna i drzwi,
 - realistyczne przejścia,
 - realistyczna zabudowa,
 - realistyczna wyspa,
