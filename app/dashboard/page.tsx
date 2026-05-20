@@ -617,6 +617,28 @@ export default function Home() {
               PDF
             </button>
 
+            <button
+
+              onClick={async () => {
+
+                await supabase.auth.signOut();
+
+                window.location.href =
+                  "/";
+              }}
+
+              className="
+                bg-red-500
+                text-white
+                px-6
+                py-4
+                rounded-2xl
+                font-bold
+              "
+            >
+              Wyloguj
+            </button>
+
           </div>
 
         </div>
