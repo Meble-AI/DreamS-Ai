@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import { addLogoToImage } from "@/lib/addLogo";
+import { kitchenKnowledge }
+from "@/lib/kitchenKnowledge";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -82,18 +84,26 @@ export async function POST(
     const {
       message,
       history = [],
-      name,
-      phone,
-      city,
-      email,
       image,
     } = body;
 
     // =========================
-    // ROOM VISION ANALYSIS
+    // ROOM SCANNER AI
     // =========================
 
     let roomAnalysis = "";
+
+    let roomData = {
+
+      walls: [],
+      windows: 0,
+      doors: 0,
+      layout: "",
+      estimated_size: "",
+      has_island_space: false,
+      kitchen_type: "",
+      ergonomic_notes: [],
+    };
 
     if (image) {
 
@@ -105,6 +115,10 @@ export async function POST(
             model:
               "gpt-4.1-mini",
 
+            response_format: {
+              type: "json_object",
+            },
+
             messages: [
 
               {
@@ -112,21 +126,34 @@ export async function POST(
 
                 content: `
 
-Jesteś profesjonalnym projektantem kuchni premium.
+Jesteś AI Room Scanner dla producenta mebli premium.
 
-Przeanalizuj przesłany rzut lub zdjęcie pomieszczenia.
+Przeanalizuj przesłane pomieszczenie.
 
-Określ:
-- układ pomieszczenia,
-- ściany,
-- okna,
-- drzwi,
-- możliwości zabudowy,
-- ergonomię,
-- ograniczenia projektowe,
-- najlepszy układ kuchni.
+Zwróć JSON:
 
-Odpowiadaj bardzo konkretnie.
+{
+  "room_analysis": "",
+  "layout": "",
+  "estimated_size": "",
+  "walls": [],
+  "windows": 0,
+  "doors": 0,
+  "has_island_space": true,
+  "kitchen_type": "",
+  "ergonomic_notes": []
+}
+
+BARDZO WAŻNE:
+- analizuj rzeczywisty układ,
+- wykrywaj ściany,
+- wykrywaj okna,
+- wykrywaj drzwi,
+- wykrywaj możliwości zabudowy,
+- analizuj ergonomię,
+- analizuj przejścia,
+- analizuj miejsce na wyspę,
+- analizuj potencjalny układ kuchni.
 
 `,
               },
@@ -140,7 +167,7 @@ Odpowiadaj bardzo konkretnie.
                     type: "text",
 
                     text: `
-Przeanalizuj to pomieszczenie pod projekt kuchni premium.
+Przeskanuj pomieszczenie pod projekt kuchni premium.
 `,
                   },
 
@@ -156,22 +183,63 @@ Przeanalizuj to pomieszczenie pod projekt kuchni premium.
             ],
           });
 
+        const parsed =
+          JSON.parse(
+
+            vision
+              .choices[0]
+              .message.content || "{}"
+          );
+
         roomAnalysis =
-          vision.choices[0]
-            .message.content || "";
+          parsed.room_analysis || "";
+
+        roomData = {
+
+          walls:
+            parsed.walls || [],
+
+          windows:
+            parsed.windows || 0,
+
+          doors:
+            parsed.doors || 0,
+
+          layout:
+            parsed.layout || "",
+
+          estimated_size:
+            parsed.estimated_size || "",
+
+          has_island_space:
+            parsed.has_island_space || false,
+
+          kitchen_type:
+            parsed.kitchen_type || "",
+
+          ergonomic_notes:
+            parsed.ergonomic_notes || [],
+        };
 
       } catch (visionError) {
 
         console.log(
-          "VISION ERROR:",
+          "ROOM SCANNER ERROR:",
           visionError
         );
       }
     }
 
+    // =========================
+    // HISTORY
+    // =========================
+
+    const limitedHistory =
+      history.slice(-8);
+
     const conversation = [
 
-      ...history.map(
+      ...limitedHistory.map(
         (item: any) => `
 KLIENT:
 ${item.user}
@@ -191,7 +259,7 @@ ${message}
       conversation.toLowerCase();
 
     // =========================
-    // EDIT DETECTION
+    // EDIT MODE
     // =========================
 
     const isEditingProject =
@@ -231,7 +299,7 @@ ${message}
       lowerConversation.includes("tylko");
 
     // =========================
-    // STRUCTURED MEMORY
+    // MEMORY
     // =========================
 
     const projectMemory = {
@@ -276,59 +344,32 @@ ${message}
         : lowerConversation.includes("drew")
           ? "drewniany"
 
-        : lowerConversation.includes("konglomerat")
-          ? "konglomerat"
-
         : "premium",
 
       uklad:
 
-        lowerConversation.includes("wyspa")
-          ? "L + wyspa"
+        roomData.layout ||
 
-        : lowerConversation.includes("układ l")
-          ? "L"
+        (
 
-        : lowerConversation.includes("układ u")
-          ? "U"
+          lowerConversation.includes("wyspa")
+            ? "L + wyspa"
 
-        : lowerConversation.includes("dwurzęd")
-          ? "dwurzędowy"
+          : lowerConversation.includes("układ l")
+            ? "L"
 
-        : "jednorzędowy",
+          : lowerConversation.includes("układ u")
+            ? "U"
 
-      ergonomia: {
-
-        trojkat_roboczy: true,
-
-        logiczne_narozniki: true,
-
-        spojne_glebokosci: true,
-
-        ciaglosc_blatow: true,
-
-        ergonomiczne_przejscia: true,
-      },
-
-      wysoka_zabudowa:
-
-        lowerConversation.includes(
-          "wysoka zabudowa"
+          : "premium"
         ),
 
       wyspa:
+
+        roomData.has_island_space ||
+
         lowerConversation.includes(
           "wyspa"
-        ),
-
-      witryny:
-        lowerConversation.includes(
-          "witry"
-        ),
-
-      led:
-        lowerConversation.includes(
-          "led"
         ),
 
       blum:
@@ -336,164 +377,45 @@ ${message}
           "blum"
         ),
 
-      realne_pomieszczenie:
-        !!image,
+      led:
+        lowerConversation.includes(
+          "led"
+        ),
+
+      witryny:
+        lowerConversation.includes(
+          "witry"
+        ),
+
+      room_scan:
+        roomData,
     };
 
     // =========================
-    // CONSULTATION STAGE
+    // PROJECT MODE
     // =========================
 
-    const consultationProgress = {
+    const generateProject =
 
-      styl:
-        !!projectMemory.styl,
-
-      kolor:
-        !!projectMemory.kolor_frontow,
-
-      blat:
-        !!projectMemory.blat,
-
-      uklad:
-        !!projectMemory.uklad,
-
-      wyspa:
-        projectMemory.wyspa,
-
-      materialy:
-        projectMemory.blum,
-
-      oswietlenie:
-        projectMemory.led,
-    };
-
-    const missingItems =
-      Object.entries(
-        consultationProgress
+      lowerConversation.includes(
+        "projekt"
       )
-        .filter(
-          ([, value]) => !value
-        )
-        .map(
-          ([key]) => key
-        );
 
-    // =========================
-    // PROJECT TRIGGER
-    // =========================
+      ||
 
-const generateProject =
+      lowerConversation.includes(
+        "wizualizacja"
+      )
 
-  lowerConversation.includes(
-    "stwórz projekt"
-  )
+      ||
 
-  ||
+      lowerConversation.includes(
+        "popraw"
+      )
 
-  lowerConversation.includes(
-    "wygeneruj projekt"
-  )
+      ||
 
-  ||
-
-  lowerConversation.includes(
-    "generuj wizualizację"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "pokaż projekt"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "zrób wizualizację"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "wizualizacja"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "projekt gotowy"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "zmień"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "popraw"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "dodaj"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "usuń"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "edytuj"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "przesuń"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "powiększ"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "pomniejsz"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "inny kolor"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "zmień blat"
-  )
-
-  ||
-
-  lowerConversation.includes(
-    "zmień fronty"
-  )
-
-  ||
-
-  isEditingProject;
+      isEditingProject;
 
     // =========================
     // CONSULTATION
@@ -516,22 +438,16 @@ const generateProject =
 
 Jesteś elitarnym projektantem kuchni premium DreamS AI.
 
-Prowadź klienta jak profesjonalny projektant wnętrz.
+ZNASZ SŁOWNIK PRODUCENTA:
+
+${kitchenKnowledge}
 
 BARDZO WAŻNE:
-
-- analizuj pamięć projektu,
-- analizuj całą rozmowę,
-- analizuj rzut pomieszczenia,
+- analizuj room scanner,
+- analizuj układ pomieszczenia,
+- analizuj ergonomię,
 - nie pytaj drugi raz o to samo,
-- zadawaj maksymalnie 2 pytania,
-- prowadź klienta krok po kroku,
-- zachowuj się profesjonalnie,
-- pomagaj klientowi podejmować decyzje,
-- pamiętaj wcześniejsze ustalenia.
-
-Jeśli czegoś brakuje:
-- pytaj tylko o brakujące informacje.
+- prowadź klienta jak profesjonalne studio projektowe.
 
 `,
             },
@@ -541,6 +457,18 @@ Jeśli czegoś brakuje:
 
               content: `
 
+ROOM SCAN:
+
+${JSON.stringify(
+  roomData,
+  null,
+  2
+)}
+
+ROOM ANALYSIS:
+
+${roomAnalysis}
+
 PAMIĘĆ:
 
 ${JSON.stringify(
@@ -549,14 +477,6 @@ ${JSON.stringify(
   2
 )}
 
-ANALIZA POMIESZCZENIA:
-
-${roomAnalysis}
-
-BRAKUJĄCE INFORMACJE:
-
-${missingItems.join(", ")}
-
 ROZMOWA:
 
 ${conversation}
@@ -564,8 +484,6 @@ ${conversation}
 `,
             },
           ],
-
-          temperature: 0.8,
         });
 
       return Response.json({
@@ -585,6 +503,8 @@ ${conversation}
 
         floorPlan:
           null,
+
+        roomData,
       });
     }
 
@@ -607,36 +527,26 @@ ${conversation}
 
 Jesteś elitarnym projektantem kuchni premium.
 
-BARDZO WAŻNE:
+ZNASZ SŁOWNIK PRODUCENTA:
 
-- projektuj realistycznie,
-- analizuj rzut pomieszczenia,
+${kitchenKnowledge}
+
+BARDZO WAŻNE:
+- analizuj room scanner,
+- respektuj rzeczywisty układ,
 - respektuj ściany,
 - respektuj okna,
 - respektuj drzwi,
+- projektuj realistycznie,
 - zachowaj ergonomię,
-- zachowaj poprawny trójkąt roboczy,
-- zachowaj logiczne przejścia,
+- zachowaj poprawne przejścia,
 - zachowaj poprawne proporcje,
-- projektuj jak producent mebli na wymiar,
-- analizuj pamięć projektu,
-- NIE zmieniaj całej kuchni bez potrzeby.
+- projektuj jak profesjonalny stolarz premium.
 
 Jeśli klient chce poprawki:
-- zmień WYŁĄCZNIE wskazane elementy,
+- zmieniaj tylko wskazane elementy,
 - zachowaj resztę projektu,
-- zachowaj układ kuchni,
-- zachowaj wcześniejsze ustalenia,
-- zachowaj styl,
-- zachowaj ergonomię,
-- nie projektuj nowej kuchni,
-- poprawiaj istniejący projekt jak prawdziwy projektant wnętrz.
-
-BARDZO WAŻNE:
-Jeśli klient pisze po wygenerowaniu projektu:
-- traktuj to jako edycję istniejącej kuchni,
-- nie zaczynaj projektu od nowa,
-- nanieś poprawki na aktualną wizualizację.
+- nie generuj nowej kuchni.
 
 `,
           },
@@ -646,6 +556,18 @@ Jeśli klient pisze po wygenerowaniu projektu:
 
             content: `
 
+ROOM SCAN:
+
+${JSON.stringify(
+  roomData,
+  null,
+  2
+)}
+
+ROOM ANALYSIS:
+
+${roomAnalysis}
+
 PAMIĘĆ:
 
 ${JSON.stringify(
@@ -653,10 +575,6 @@ ${JSON.stringify(
   null,
   2
 )}
-
-ANALIZA POMIESZCZENIA:
-
-${roomAnalysis}
 
 TRYB EDYCJI:
 ${isEditingProject ? "TAK" : "NIE"}
@@ -668,8 +586,6 @@ ${conversation}
 `,
           },
         ],
-
-        temperature: 0.7,
       });
 
     const aiReply =
@@ -690,14 +606,22 @@ ${conversation}
 
     try {
 
-      const styles = [
+      const styles =
 
-        "minimalist luxury",
+        isEditingProject
 
-        "modern premium",
+          ? [
+              "updated premium"
+            ]
 
-        "warm contemporary",
-      ];
+          : [
+
+              "minimalist luxury",
+
+              "modern premium",
+
+              "warm contemporary",
+            ];
 
       for (
         const style
@@ -705,82 +629,51 @@ ${conversation}
       ) {
 
         const imagePrompt = `
-        BARDZO WAŻNE:
 
-- zachowaj istniejący projekt,
-- zmieniaj tylko wskazane elementy,
-- respektuj rzeczywisty układ pomieszczenia,
-- respektuj ściany,
-- respektuj okna,
-- respektuj drzwi,
-- projekt musi pasować do rzeczywistego rzutu,
-- zachowaj układ,
-- zachowaj ergonomię,
-- zachowaj realizm,
-- zachowaj poprawne proporcje,
-- zachowaj realistyczne odległości,
-- zachowaj realistyczną ergonomię,
-- zachowaj logiczną zabudowę,
-- nie generuj losowego układu,
+ULTRA REALISTIC PREMIUM KITCHEN.
 
-- jeśli klient chce poprawki:
-  - edytuj istniejący projekt,
-  - nie generuj nowej kuchni,
-  - zachowaj poprzedni układ,
-  - zmień tylko wskazane elementy,
-
-- realistyczna stolarka premium,
-- ultra realistic,
-- cinematic lighting,
-- photorealistic.
-
-Fotorealistyczna kuchnia premium.
-
-Styl:
+STYLE:
 ${style}
 
-PAMIĘĆ:
+ROOM SCAN:
+${JSON.stringify(
+  roomData,
+  null,
+  2
+)}
 
+ROOM ANALYSIS:
+${roomAnalysis}
+
+PAMIĘĆ:
 ${JSON.stringify(
   projectMemory,
   null,
   2
 )}
 
-ROOM ANALYSIS:
-
-${roomAnalysis}
-
-TRYB EDYCJI:
-${isEditingProject ? "TAK" : "NIE"}
-
 BARDZO WAŻNE:
 
-- zachowaj istniejący projekt,
-- zmieniaj tylko wskazane elementy,
 - respektuj rzeczywisty układ pomieszczenia,
 - respektuj ściany,
 - respektuj okna,
 - respektuj drzwi,
-- projekt musi pasować do rzeczywistego rzutu,
-- zachowaj układ,
-- zachowaj ergonomię,
-- zachowaj realizm,
-- zachowaj poprawne proporcje,
-- zachowaj realistyczne odległości,
-- zachowaj realistyczną ergonomię,
-- zachowaj logiczną zabudowę,
-- nie generuj losowego układu,
-- realistyczna stolarka premium,
+- respektuj przejścia,
+- respektuj miejsce na wyspę,
+- realistyczna ergonomia,
+- realistyczna zabudowa,
+- realistyczne odległości,
+- realistyczne głębokości szafek,
+- profesjonalna kuchnia premium,
+- możliwa do wykonania przez stolarza,
 - ultra realistic,
+- photorealistic,
 - cinematic lighting,
-- photorealistic.
+- architectural visualization.
 
-${image ? `
-KLIENT DODAŁ RZUT LUB ZDJĘCIE.
-
-Projektuj pod rzeczywiste pomieszczenie.
-` : ""}
+Jeśli klient chce poprawki:
+- zmień tylko wskazane elementy,
+- zachowaj resztę projektu.
 
 ROZMOWA:
 
@@ -818,72 +711,61 @@ ${conversation}
         }
       }
 
+      // =========================
       // FLOORPLAN
+      // =========================
 
-      const floorPlanPrompt = `
+      if (!isEditingProject) {
 
-Professional kitchen floorplan.
+        const floorPrompt = `
 
-Top view.
+Professional kitchen CAD floorplan.
 
-Kitchen CAD layout.
-
-PAMIĘĆ:
-
+ROOM SCAN:
 ${JSON.stringify(
-  projectMemory,
+  roomData,
   null,
   2
 )}
 
 ROOM ANALYSIS:
-
 ${roomAnalysis}
 
-TRYB EDYCJI:
-${isEditingProject ? "TAK" : "NIE"}
-
-BARDZO WAŻNE:
-
-- zachowaj ergonomię,
-- zachowaj poprawny trójkąt roboczy,
-- respektuj rzeczywisty układ pomieszczenia,
-- respektuj okna i drzwi,
-- realistyczne przejścia,
-- realistyczna zabudowa,
-- realistyczna wyspa,
-- poprawne AGD,
-- profesjonalny układ kuchni.
-
-ROZMOWA:
-
-${conversation}
+IMPORTANT:
+- respect room dimensions,
+- respect walls,
+- respect windows,
+- respect doors,
+- realistic kitchen ergonomics,
+- realistic passages,
+- premium kitchen layout.
 
 `;
 
-      const floor =
-        await openai.images.generate({
+        const floor =
+          await openai.images.generate({
 
-          model:
-            "gpt-image-1",
+            model:
+              "gpt-image-1",
 
-          prompt:
-            floorPlanPrompt,
+            prompt:
+              floorPrompt,
 
-          size:
-            "1536x1024",
-        });
+            size:
+              "1536x1024",
+          });
 
-      const rawFloor =
-        floor.data?.[0]
-          ?.b64_json;
+        const rawFloor =
+          floor.data?.[0]
+            ?.b64_json;
 
-      if (rawFloor) {
+        if (rawFloor) {
 
-        floorPlan =
-          await addLogoToImage(
-            rawFloor
-          );
+          floorPlan =
+            await addLogoToImage(
+              rawFloor
+            );
+        }
       }
 
     } catch (imageError) {
@@ -899,9 +781,32 @@ ${conversation}
         aiReply
       );
 
-    const finalReply = `
+    return Response.json({
+
+      success: true,
+
+      reply: `
 
 ${aiReply}
+
+---
+
+# ROOM SCANNER AI
+
+Wykryty układ:
+${roomData.layout}
+
+Szacowany rozmiar:
+${roomData.estimated_size}
+
+Okna:
+${roomData.windows}
+
+Drzwi:
+${roomData.doors}
+
+Możliwość wyspy:
+${roomData.has_island_space ? "TAK" : "NIE"}
 
 ---
 
@@ -917,18 +822,11 @@ AGD wyceniane osobno.
 
 Możesz dalej:
 - poprawiać projekt,
-- zmieniać materiały,
 - zmieniać układ,
+- zmieniać materiały,
 - edytować wizualizację.
 
-`;
-
-    return Response.json({
-
-      success: true,
-
-      reply:
-        finalReply,
+`,
 
       generatedImage:
         generatedImages[0],
@@ -936,6 +834,8 @@ Możesz dalej:
       generatedImages,
 
       floorPlan,
+
+      roomData,
     });
 
   } catch (err: any) {
