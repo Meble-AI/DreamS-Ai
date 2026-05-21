@@ -333,7 +333,7 @@ export default function Home() {
             },
 
             image,
-            images,
+            
 
               message,
 
@@ -349,7 +349,6 @@ export default function Home() {
               city,
               email,
             }),
-          }
         );
 
       const data =
