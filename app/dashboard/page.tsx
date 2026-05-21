@@ -27,8 +27,8 @@ export default function Home() {
   const [loading, setLoading] =
     useState(false);
 
-  const [image, setImage] =
-    useState<string | null>(null);
+  const [images, setImages] =
+  useState<string[]>([]);
 
   const [name, setName] =
     useState("");
@@ -321,35 +321,35 @@ export default function Home() {
     try {
 
       const res =
-        await fetch(
-          "/api/chat",
+  await fetch(
+    "/api/chat",
 
-          {
-            method: "POST",
+    {
+      method: "POST",
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
 
-            image,
-            
+      body: JSON.stringify({
 
-              message,
+        message,
 
-              history: chat,
+        history: chat,
 
-              memory:
-                projectMemory,
+        memory:
+          projectMemory,
 
-              image,
+        images,
 
-              name,
-              phone,
-              city,
-              email,
-            }),
-        );
+        name,
+        phone,
+        city,
+        email,
+      }),
+    }
+  );
 
       const data =
         await res.json();
@@ -905,8 +905,39 @@ export default function Home() {
 
   className="
     mb-6
-  "
-/>
+    
+  " 
+  {images.length > 0 && (
+
+  <div className="
+    grid
+    grid-cols-2
+    md:grid-cols-4
+    gap-4
+    mb-6
+  ">
+
+    {images.map(
+      (
+        img,
+        index
+      ) => (
+
+        <img
+          key={index}
+          src={img}
+          alt=""
+          className="
+            rounded-2xl
+            border
+            border-white/10
+          "
+        />
+      )
+    )}
+
+  </div>
+)} />
 
           {loading && (
 
@@ -1051,4 +1082,3 @@ export default function Home() {
 
     </main>
   );
-}
