@@ -4,23 +4,27 @@ export default function Home() {
 
   return (
 
-    <main className="
-      bg-black
-      text-white
-      overflow-hidden
-    ">
+    <main
+      className="
+        bg-black
+        text-white
+        overflow-hidden
+      "
+    >
 
       {/* HERO */}
 
-      <section className="
-        relative
-        min-h-screen
-        overflow-hidden
-        bg-black
-        text-white
-      ">
+      <section
+        className="
+          relative
+          min-h-screen
+          overflow-hidden
+          bg-black
+          text-white
+        "
+      >
 
-        {/* DESKTOP VIDEO */}
+        {/* VIDEO DESKTOP */}
 
         <video
           autoPlay
@@ -48,11 +52,13 @@ export default function Home() {
 
         {/* MOBILE IMAGE */}
 
-        <div className="
-          md:hidden
-          absolute
-          inset-0
-        ">
+        <div
+          className="
+            md:hidden
+            absolute
+            inset-0
+          "
+        >
 
           <img
             src="/mobile-kitchen.jpg"
@@ -69,87 +75,111 @@ export default function Home() {
 
         {/* OVERLAY */}
 
-        <div className="
-          absolute
-          inset-0
-          bg-black/60
-        " />
+        <div
+          className="
+            absolute
+            inset-0
+            bg-black/60
+          "
+        />
 
         {/* CONTENT */}
 
-        <div className="
-          relative
-          z-10
-          max-w-7xl
-          mx-auto
-          px-6
-          py-24
-          flex
-          flex-col
-          justify-center
-          min-h-screen
-        ">
+        <div
+          className="
+            relative
+            z-10
+            max-w-7xl
+            mx-auto
+            px-6
+            py-24
+            flex
+            flex-col
+            justify-center
+            min-h-screen
+          "
+        >
 
-          <div className="
-            max-w-4xl
-          ">
+          <div
+            className="
+              max-w-4xl
+            "
+          >
 
-            <div className="
-              inline-flex
-              items-center
-              gap-3
-              bg-white/10
-              border
-              border-white/10
-              rounded-full
-              px-5
-              py-3
-              mb-8
-              backdrop-blur-xl
-            ">
+            {/* BADGE */}
 
-              <div className="
-                w-3
-                h-3
+            <div
+              className="
+                inline-flex
+                items-center
+                gap-3
+                bg-white/10
+                border
+                border-white/10
                 rounded-full
-                bg-green-400
-              " />
+                px-5
+                py-3
+                mb-8
+                backdrop-blur-xl
+              "
+            >
 
-              <span className="
-                text-sm
-                font-semibold
-              ">
+              <div
+                className="
+                  w-3
+                  h-3
+                  rounded-full
+                  bg-green-400
+                "
+              />
+
+              <span
+                className="
+                  text-sm
+                  font-semibold
+                "
+              >
                 AI Room Scanner aktywny
               </span>
 
             </div>
 
-            <h1 className="
-              text-5xl
-              md:text-7xl
-              font-black
-              leading-tight
-            ">
+            {/* TITLE */}
+
+            <h1
+              className="
+                text-5xl
+                md:text-7xl
+                font-black
+                leading-tight
+              "
+            >
 
               DreamS AI
 
-              <span className="
-                block
-                text-white/70
-                mt-4
-              ">
+              <span
+                className="
+                  block
+                  text-white/70
+                  mt-4
+                "
+              >
                 Kuchnie tworzone przez AI
               </span>
 
             </h1>
 
-            <p className="
-              text-xl
-              text-white/70
-              mt-10
-              max-w-2xl
-              leading-relaxed
-            ">
+            {/* DESCRIPTION */}
+
+            <p
+              className="
+                text-xl
+                text-white/70
+                mt-10
+                max-w-2xl
+                leading-relaxed
+              "
+            >
 
               Prześlij zdjęcie lub rzut pomieszczenia,
               a DreamS AI automatycznie wykryje:
@@ -160,14 +190,16 @@ export default function Home() {
 
             {/* FEATURES */}
 
-            <div className="
-              grid
-              grid-cols-1
-              md:grid-cols-2
-              gap-4
-              mt-12
-              max-w-3xl
-            ">
+            <div
+              className="
+                grid
+                grid-cols-1
+                md:grid-cols-2
+                gap-4
+                mt-12
+                max-w-3xl
+              "
+            >
 
               {[
                 "AI Room Scanner",
@@ -191,22 +223,28 @@ export default function Home() {
                   "
                 >
 
-                  <div className="
-                    flex
-                    items-center
-                    gap-3
-                  ">
+                  <div
+                    className="
+                      flex
+                      items-center
+                      gap-3
+                    "
+                  >
 
-                    <div className="
-                      w-2
-                      h-2
-                      rounded-full
-                      bg-green-400
-                    " />
+                    <div
+                      className="
+                        w-2
+                        h-2
+                        rounded-full
+                        bg-green-400
+                      "
+                    />
 
-                    <span className="
-                      font-medium
-                    ">
+                    <span
+                      className="
+                        font-medium
+                      "
+                    >
                       {item}
                     </span>
 
@@ -217,22 +255,26 @@ export default function Home() {
 
             </div>
 
-            {/* CTA */}
+            {/* BUTTONS */}
 
-            <div className="
-              flex
-              flex-col
-              md:flex-row
-              gap-5
-              mt-14
-            ">
+            <div
+              className="
+                flex
+                flex-col
+                md:flex-row
+                gap-5
+                mt-14
+              "
+            >
+
+              {/* START */}
 
               <button
 
-                onClick={() =>
+                onClick={() => {
                   window.location.href =
-                    "/login"
-                }
+                    "/dashboard";
+                }}
 
                 className="
                   bg-white
@@ -249,18 +291,13 @@ export default function Home() {
                 Rozpocznij projekt
               </button>
 
+              {/* SCANNER */}
+
               <button
 
                 onClick={() => {
-
-                  const el =
-                    document.getElementById(
-                      "scanner"
-                    );
-
-                  el?.scrollIntoView({
-                    behavior: "smooth",
-                  });
+                  window.location.href =
+                    "/dashboard";
                 }}
 
                 className="
@@ -273,6 +310,8 @@ export default function Home() {
                   font-bold
                   text-lg
                   backdrop-blur-xl
+                  hover:bg-white/20
+                  transition
                 "
               >
                 Zobacz AI Room Scanner
@@ -286,7 +325,7 @@ export default function Home() {
 
       </section>
 
-      {/* ROOM SCANNER */}
+      {/* ROOM SCANNER SECTION */}
 
       <section
         id="scanner"
@@ -298,44 +337,54 @@ export default function Home() {
         "
       >
 
-        <div className="
-          max-w-7xl
-          mx-auto
-          grid
-          md:grid-cols-2
-          gap-20
-          items-center
-        ">
+        <div
+          className="
+            max-w-7xl
+            mx-auto
+            grid
+            md:grid-cols-2
+            gap-20
+            items-center
+          "
+        >
+
+          {/* LEFT */}
 
           <div>
 
-            <div className="
-              text-sm
-              uppercase
-              tracking-[0.3em]
-              text-white/50
-              mb-6
-            ">
+            <div
+              className="
+                text-sm
+                uppercase
+                tracking-[0.3em]
+                text-white/50
+                mb-6
+              "
+            >
               AI ROOM SCANNER
             </div>
 
-            <h2 className="
-              text-5xl
-              font-black
-              leading-tight
-            ">
+            <h2
+              className="
+                text-5xl
+                font-black
+                leading-tight
+              "
+            >
 
               Skanuj pomieszczenie
               telefonem
 
             </h2>
 
-            <p className="
-              text-xl
-              text-white/70
-              mt-8
-              leading-relaxed
-            ">
+            <p
+              className="
+                text-xl
+                text-white/70
+                mt-8
+                leading-relaxed
+              "
+            >
 
               DreamS AI analizuje pomieszczenie,
               wykrywa ściany, okna, drzwi,
@@ -344,10 +393,12 @@ export default function Home() {
 
             </p>
 
-            <div className="
-              space-y-5
-              mt-12
-            ">
+            <div
+              className="
+                space-y-5
+                mt-12
+              "
+            >
 
               {[
                 "Wykrywanie ścian i układu",
@@ -366,16 +417,20 @@ export default function Home() {
                   "
                 >
 
-                  <div className="
-                    w-3
-                    h-3
-                    rounded-full
-                    bg-green-400
-                  " />
+                  <div
+                    className="
+                      w-3
+                      h-3
+                      rounded-full
+                      bg-green-400
+                    "
+                  />
 
-                  <span className="
-                    text-lg
-                  ">
+                  <span
+                    className="
+                      text-lg
+                    "
+                  >
                     {item}
                   </span>
 
@@ -384,11 +439,40 @@ export default function Home() {
 
             </div>
 
+            {/* CTA */}
+
+            <button
+
+              onClick={() => {
+                window.location.href =
+                  "/dashboard";
+              }}
+
+              className="
+                mt-12
+                bg-white
+                text-black
+                px-10
+                py-5
+                rounded-2xl
+                font-bold
+                text-lg
+                hover:scale-[1.02]
+                transition
+              "
+            >
+              Uruchom AI Room Scanner
+            </button>
+
           </div>
 
-          <div className="
-            relative
-          ">
+          {/* RIGHT */}
+
+          <div
+            className="
+              relative
+            "
+          >
 
             <img
               src="/scanner-preview.jpg"

@@ -7,6 +7,9 @@ import { supabase } from "@/lib/supabase";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
+import ProjectVersions
+from "@/components/ProjectVersions";
+
 export default function Home() {
 
   const [message, setMessage] =
@@ -24,11 +27,17 @@ export default function Home() {
   const [projectStatus, setProjectStatus] =
     useState("Konsultacja");
 
+  const [credits, setCredits] =
+    useState<number>(0);
+
+  const [plan, setPlan] =
+    useState("FREE");
+
   const [loading, setLoading] =
     useState(false);
 
   const [images, setImages] =
-  useState<string[]>([]);
+    useState<string[]>([]);
 
   const [name, setName] =
     useState("");
@@ -165,8 +174,54 @@ export default function Home() {
       }
     }
 
+    async function loadProfile() {
+
+      try {
+
+        const {
+
+          data: { user },
+
+        } =
+          await supabase.auth.getUser();
+
+        if (!user?.id)
+          return;
+
+        const { data } =
+          await supabase
+
+            .from("profiles")
+
+            .select("*")
+
+            .eq(
+              "id",
+              user.id
+            )
+
+            .single();
+
+        if (data) {
+
+          setCredits(
+            data.credits || 0
+          );
+
+          setPlan(
+            data.plan || "FREE"
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
+      }
+    }
+
     loadProject();
     getUser();
+    loadProfile();
 
   }, []);
 
@@ -313,6 +368,20 @@ export default function Home() {
   async function sendMessage() {
 
     if (
+      credits <= 0
+    ) {
+
+      alert(
+        "Brak kredytów 🙂 Kup pakiet aby generować projekty."
+      );
+
+      window.location.href =
+        "/pricing";
+
+      return;
+    }
+
+    if (
       !message.trim()
     ) return;
 
@@ -321,35 +390,42 @@ export default function Home() {
     try {
 
       const res =
-  await fetch(
-    "/api/chat",
+        await fetch(
+          "/api/chat",
 
-    {
-      method: "POST",
+          {
+            method: "POST",
 
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-      body: JSON.stringify({
+            body: JSON.stringify({
 
-        message,
+              message,
 
-        history: chat,
+              history: chat,
 
-        memory:
-          projectMemory,
+              projectMemory,
 
-        images,
+              images,
 
-        name,
-        phone,
-        city,
-        email,
-      }),
-    }
-  );
+              previousImages:
+                chat
+                  .flatMap(
+                    (item) =>
+                      item.generatedImages || []
+                  )
+                  .slice(-1),
+
+              name,
+              phone,
+              city,
+              email,
+            }),
+          }
+        );
 
       const data =
         await res.json();
@@ -413,6 +489,50 @@ export default function Home() {
 
         setProjectMemory(
           data.memory
+        );
+      }
+
+      const newCredits =
+        Math.max(
+          credits - 1,
+          0
+        );
+
+      setCredits(
+        newCredits
+      );
+
+      try {
+
+        const {
+
+          data: { user },
+
+        } =
+          await supabase.auth.getUser();
+
+        if (user?.id) {
+
+          await supabase
+
+            .from("profiles")
+
+            .update({
+
+              credits:
+                newCredits,
+            })
+
+            .eq(
+              "id",
+              user.id
+            );
+        }
+
+      } catch (creditError) {
+
+        console.log(
+          creditError
         );
       }
 
@@ -505,28 +625,34 @@ export default function Home() {
 
   return (
 
-    <main className="
-      min-h-screen
-      bg-black
-      text-white
-      p-6
-    ">
+    <main
+      className="
+        min-h-screen
+        bg-black
+        text-white
+        p-6
+      "
+    >
 
-      <div className="
-        max-w-7xl
-        mx-auto
-      ">
+      <div
+        className="
+          max-w-7xl
+          mx-auto
+        "
+      >
 
         {/* TOP */}
 
-        <div className="
-          flex
-          justify-between
-          items-center
-          mb-10
-          gap-6
-          flex-wrap
-        ">
+        <div
+          className="
+            flex
+            justify-between
+            items-center
+            mb-10
+            gap-6
+            flex-wrap
+          "
+        >
 
           <div>
 
@@ -537,37 +663,45 @@ export default function Home() {
               height={80}
             />
 
-            <h1 className="
-              text-5xl
-              font-bold
-              mt-4
-            ">
+            <h1
+              className="
+                text-5xl
+                font-bold
+                mt-4
+              "
+            >
               DreamS AI
             </h1>
 
-            <div className="
-              mt-4
-              inline-flex
-              items-center
-              gap-3
-              bg-blue-600/20
-              border
-              border-blue-500/30
-              px-5
-              py-3
-              rounded-2xl
-            ">
+            <div
+              className="
+                mt-4
+                inline-flex
+                items-center
+                gap-3
+                bg-blue-600/20
+                border
+                border-blue-500/30
+                px-5
+                py-3
+                rounded-2xl
+              "
+            >
 
-              <div className="
-                w-3
-                h-3
-                rounded-full
-                bg-green-400
-              " />
+              <div
+                className="
+                  w-3
+                  h-3
+                  rounded-full
+                  bg-green-400
+                "
+              />
 
-              <div className="
-                font-semibold
-              ">
+              <div
+                className="
+                  font-semibold
+                "
+              >
                 Status:
                 {" "}
                 {projectStatus}
@@ -577,11 +711,13 @@ export default function Home() {
 
           </div>
 
-          <div className="
-            flex
-            gap-4
-            flex-wrap
-          ">
+          <div
+            className="
+              flex
+              gap-4
+              flex-wrap
+            "
+          >
 
             <button
 
@@ -643,32 +779,146 @@ export default function Home() {
 
         </div>
 
+        {/* BILLING */}
+
+        <div
+          className="
+            grid
+            md:grid-cols-3
+            gap-6
+            mb-10
+          "
+        >
+
+          <div
+            className="
+              bg-white/5
+              border
+              border-white/10
+              rounded-3xl
+              p-6
+            "
+          >
+
+            <div
+              className="
+                text-gray-400
+                mb-2
+              "
+            >
+              Plan
+            </div>
+
+            <div
+              className="
+                text-3xl
+                font-bold
+              "
+            >
+              {plan}
+            </div>
+
+          </div>
+
+          <div
+            className="
+              bg-white/5
+              border
+              border-white/10
+              rounded-3xl
+              p-6
+            "
+          >
+
+            <div
+              className="
+                text-gray-400
+                mb-2
+              "
+            >
+              Pozostałe kredyty
+            </div>
+
+            <div
+              className="
+                text-3xl
+                font-bold
+              "
+            >
+              {credits}
+            </div>
+
+          </div>
+
+          <div
+            className="
+              bg-white/5
+              border
+              border-white/10
+              rounded-3xl
+              p-6
+              flex
+              items-center
+              justify-center
+            "
+          >
+
+            <button
+
+              onClick={() =>
+                window.location.href =
+                  "/pricing"
+              }
+
+              className="
+                bg-green-600
+                hover:bg-green-500
+                transition
+                px-6
+                py-4
+                rounded-2xl
+                font-bold
+              "
+            >
+              Kup kredyty
+            </button>
+
+          </div>
+
+        </div>
+
         {/* MEMORY */}
 
         {projectMemory && (
 
-          <div className="
-            bg-white/5
-            border
-            border-white/10
-            rounded-3xl
-            p-6
-            mb-10
-          ">
+          <div
+            className="
+              bg-white/5
+              border
+              border-white/10
+              rounded-3xl
+              p-6
+              mb-10
+            "
+          >
 
-            <div className="
-              text-2xl
-              font-bold
-              mb-4
-            ">
+            <div
+              className="
+                text-2xl
+                font-bold
+                mb-4
+              "
+            >
               Pamięć projektu
             </div>
 
-            <pre className="
-              text-sm
-              overflow-auto
-              text-green-300
-            ">
+            <pre
+              className="
+                text-sm
+                overflow-auto
+                text-green-300
+              "
+            >
               {JSON.stringify(
                 projectMemory,
                 null,
@@ -679,12 +929,20 @@ export default function Home() {
           </div>
         )}
 
+        {/* PROJECT VERSIONS */}
+
+        <ProjectVersions
+          chat={chat}
+        />
+
         {/* CHAT */}
 
-        <div className="
-          space-y-8
-          mb-10
-        ">
+        <div
+          className="
+            space-y-8
+            mb-10
+          "
+        >
 
           {chat.map(
             (
@@ -699,16 +957,20 @@ export default function Home() {
                 "
               >
 
-                <div className="
-                  bg-white/5
-                  rounded-3xl
-                  p-6
-                ">
+                <div
+                  className="
+                    bg-white/5
+                    rounded-3xl
+                    p-6
+                  "
+                >
 
-                  <div className="
-                    text-gray-400
-                    mb-3
-                  ">
+                  <div
+                    className="
+                      text-gray-400
+                      mb-3
+                    "
+                  >
                     Klient
                   </div>
 
@@ -718,33 +980,41 @@ export default function Home() {
 
                 </div>
 
-                <div className="
-                  bg-blue-900/40
-                  rounded-3xl
-                  p-6
-                ">
+                <div
+                  className="
+                    bg-blue-900/40
+                    rounded-3xl
+                    p-6
+                  "
+                >
 
-                  <div className="
-                    text-blue-200
-                    mb-3
-                  ">
+                  <div
+                    className="
+                      text-blue-200
+                      mb-3
+                    "
+                  >
                     DreamS AI
                   </div>
 
-                  <div className="
-                    whitespace-pre-wrap
-                  ">
+                  <div
+                    className="
+                      whitespace-pre-wrap
+                    "
+                  >
                     {item.ai}
                   </div>
 
                   {item.generatedImages?.length > 0 && (
 
-                    <div className="
-                      grid
-                      md:grid-cols-3
-                      gap-6
-                      mt-8
-                    ">
+                    <div
+                      className="
+                        grid
+                        md:grid-cols-3
+                        gap-6
+                        mt-8
+                      "
+                    >
 
                       {item.generatedImages.map(
                         (
@@ -768,67 +1038,9 @@ export default function Home() {
                               "
                             />
 
-                            <button
-
-                              onClick={() => {
-
-                                const link =
-                                  document.createElement(
-                                    "a"
-                                  );
-
-                                link.href =
-                                  `data:image/png;base64,${img}`;
-
-                                link.download =
-                                  `DreamS-AI-${imgIndex + 1}.png`;
-
-                                link.click();
-                              }}
-
-                              className="
-                                w-full
-                                bg-white
-                                text-black
-                                py-3
-                                rounded-2xl
-                                font-bold
-                                hover:scale-[1.02]
-                                transition
-                              "
-                            >
-                              Pobierz wizualizację
-                            </button>
-
                           </div>
                         )
                       )}
-
-                    </div>
-                  )}
-
-                  {item.floorPlan && (
-
-                    <div className="
-                      mt-10
-                    ">
-
-                      <div className="
-                        text-2xl
-                        font-bold
-                        mb-4
-                      ">
-                        📐 Rzut 2D
-                      </div>
-
-                      <img
-                        src={`data:image/png;base64,${item.floorPlan}`}
-                        alt=""
-                        className="
-                          rounded-3xl
-                          bg-white
-                        "
-                      />
 
                     </div>
                   )}
@@ -843,151 +1055,163 @@ export default function Home() {
 
         {/* INPUT */}
 
-        <div className="
-          bg-white/5
-          rounded-3xl
-          p-6
-        ">
+        <div
+          className="
+            bg-white/5
+            rounded-3xl
+            p-6
+          "
+        >
 
           <input
+            type="file"
+            multiple
+            accept="image/*"
 
-  type="file"
+            onChange={async (e) => {
 
-  multiple
-
-  accept="image/*"
-
-  onChange={async (e) => {
-
-    const files =
-      Array.from(
-        e.target.files || []
-      );
-
-    if (!files.length)
-      return;
-
-    const converted =
-      await Promise.all(
-
-        files.map(
-          (file) => {
-
-            return new Promise<string>(
-              (resolve) => {
-
-                const reader =
-                  new FileReader();
-
-                reader.onloadend =
-                  () => {
-
-                    resolve(
-                      String(
-                        reader.result
-                      )
-                    );
-                  };
-
-                reader.readAsDataURL(
-                  file
+              const files =
+                Array.from(
+                  e.target.files || []
                 );
-              }
-            );
-          }
-        )
-      );
 
-    setImages(
-      converted
-    );
-  }}
+              if (!files.length)
+                return;
 
-  className="
-    mb-6
-    
-  " 
-  {images.length > 0 && (
+              const converted =
+                await Promise.all(
 
-  <div className="
-    grid
-    grid-cols-2
-    md:grid-cols-4
-    gap-4
-    mb-6
-  ">
+                  files.map(
+                    (file) => {
 
-    {images.map(
-      (
-        img,
-        index
-      ) => (
+                      return new Promise<string>(
+                        (resolve) => {
 
-        <img
-          key={index}
-          src={img}
-          alt=""
-          className="
-            rounded-2xl
-            border
-            border-white/10
-          "
-        />
-      )
-    )}
+                          const reader =
+                            new FileReader();
 
-  </div>
-)} />
+                          reader.onloadend =
+                            () => {
 
-          {loading && (
+                              resolve(
+                                String(
+                                  reader.result
+                                )
+                              );
+                            };
 
-            <div className="
+                          reader.readAsDataURL(
+                            file
+                          );
+                        }
+                      );
+                    }
+                  )
+                );
+
+              setImages(
+                converted
+              );
+            }}
+
+            className="
               mb-6
-              bg-blue-500/10
-              border
-              border-blue-500/20
-              rounded-3xl
-              p-5
-              flex
-              items-center
-              gap-4
-            ">
+            "
+          />
 
-              <div className="
-                w-6
-                h-6
-                border-2
-                border-blue-400
-                border-t-transparent
-                rounded-full
-                animate-spin
-              " />
+          {images.length > 0 && (
 
-              <div>
+            <div
+              className="
+                grid
+                grid-cols-2
+                md:grid-cols-4
+                gap-4
+                mb-6
+              "
+            >
 
-                <div className="
-                  font-bold
-                  text-blue-300
-                ">
-                  DreamS AI pracuje...
-                </div>
+              {images.map(
+                (
+                  img,
+                  index
+                ) => (
 
-                <div className="
-                  text-sm
-                  text-gray-400
-                ">
-                  Tworzenie projektu i wizualizacji może potrwać chwilę.
-                </div>
-
-              </div>
+                  <img
+                    key={index}
+                    src={img}
+                    alt=""
+                    className="
+                      rounded-2xl
+                      border
+                      border-white/10
+                    "
+                  />
+                )
+              )}
 
             </div>
           )}
 
-          <div className="
-            flex
-            gap-4
-          ">
+          {loading && (
+
+            <div
+              className="
+                mb-6
+                bg-blue-500/10
+                border
+                border-blue-500/20
+                rounded-3xl
+                p-5
+                flex
+                items-center
+                gap-4
+              "
+            >
+
+                <div
+                  className="
+                    w-6
+                    h-6
+                    border-2
+                    border-blue-400
+                    border-t-transparent
+                    rounded-full
+                    animate-spin
+                  "
+                />
+
+                <div>
+
+                  <div
+                    className="
+                      font-bold
+                      text-blue-300
+                    "
+                  >
+                    DreamS AI pracuje...
+                  </div>
+
+                  <div
+                    className="
+                      text-sm
+                      text-gray-400
+                    "
+                  >
+                    Tworzenie projektu i wizualizacji może potrwać chwilę.
+                  </div>
+
+                </div>
+
+            </div>
+          )}
+
+          <div
+            className="
+              flex
+              gap-4
+            "
+          >
 
             <input
 
@@ -1040,23 +1264,27 @@ export default function Home() {
               "
             >
 
-              <div className="
-                flex
-                items-center
-                gap-3
-              ">
+              <div
+                className="
+                  flex
+                  items-center
+                  gap-3
+                "
+              >
 
                 {loading && (
 
-                  <div className="
-                    w-5
-                    h-5
-                    border-2
-                    border-black
-                    border-t-transparent
-                    rounded-full
-                    animate-spin
-                  " />
+                  <div
+                    className="
+                      w-5
+                      h-5
+                      border-2
+                      border-black
+                      border-t-transparent
+                      rounded-full
+                      animate-spin
+                    "
+                  />
 
                 )}
 
@@ -1082,3 +1310,4 @@ export default function Home() {
 
     </main>
   );
+}

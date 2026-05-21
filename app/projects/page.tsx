@@ -11,6 +11,10 @@ import Image from "next/image";
 import { supabase }
 from "@/lib/supabase";
 
+import {
+  generatePremiumPDF,
+} from "@/components/PremiumPDF";
+
 export default function ProjectsPage() {
 
   const [projects, setProjects] =
@@ -74,6 +78,50 @@ export default function ProjectsPage() {
     loadProjects();
 
   }, []);
+
+  function getStatusColor(
+    status: string
+  ) {
+
+    if (
+      status === "Gotowe"
+    ) {
+
+      return `
+        bg-green-500/20
+        text-green-300
+        border-green-500/20
+      `;
+    }
+
+    if (
+      status === "Poprawki"
+    ) {
+
+      return `
+        bg-yellow-500/20
+        text-yellow-300
+        border-yellow-500/20
+      `;
+    }
+
+    if (
+      status === "Projektowanie"
+    ) {
+
+      return `
+        bg-blue-500/20
+        text-blue-300
+        border-blue-500/20
+      `;
+    }
+
+    return `
+      bg-white/10
+      text-white
+      border-white/10
+    `;
+  }
 
   return (
 
@@ -161,44 +209,55 @@ export default function ProjectsPage() {
             <h1 className="
               text-5xl
               lg:text-6xl
-              font-bold
+              font-black
             ">
-              Moje projekty
+              DreamS CRM
             </h1>
 
             <p className="
               text-gray-400
               text-xl
               mt-4
+              max-w-3xl
+              leading-relaxed
             ">
-              Historia wygenerowanych
-              projektów DreamS AI
+              Profesjonalny panel
+              projektów i klientów
+              DreamS AI.
             </p>
 
           </div>
 
-          <button
+          <div className="
+            flex
+            gap-4
+            flex-wrap
+          ">
 
-            onClick={() =>
-              window.location.href =
-                "/dashboard"
-            }
+            <button
 
-            className="
-              bg-white
-              text-black
-              hover:scale-105
-              transition
-              px-8
-              py-5
-              rounded-3xl
-              font-bold
-              text-lg
-              shadow-2xl
-            "
-          >
-            Wróć do AI
-          </button>
+              onClick={() =>
+                window.location.href =
+                  "/dashboard"
+              }
+
+              className="
+                bg-white
+                text-black
+                hover:scale-105
+                transition
+                px-8
+                py-5
+                rounded-3xl
+                font-bold
+                text-lg
+                shadow-2xl
+              "
+            >
+              Nowy projekt
+            </button>
+
+          </div>
 
         </div>
 
@@ -301,10 +360,11 @@ export default function ProjectsPage() {
               <div
 
                 key={project.id}
+
                 onClick={() =>
-  window.location.href =
-    `/dashboard?project=${project.id}`
-}
+                  window.location.href =
+                    `/dashboard?project=${project.id}`
+                }
 
                 className="
                   bg-white/5
@@ -315,8 +375,8 @@ export default function ProjectsPage() {
                   overflow-hidden
                   shadow-2xl
                   cursor-pointer
-hover:scale-[1.02]
-transition
+                  hover:scale-[1.02]
+                  transition
                 "
               >
 
@@ -344,22 +404,88 @@ transition
                   p-8
                 ">
 
+                  {/* STATUS */}
+
                   <div className="
-                    text-sm
-                    text-gray-500
-                    mb-4
+                    flex
+                    items-center
+                    justify-between
+                    gap-4
+                    mb-6
                   ">
 
-                    {
+                    <div className={`
+                      px-4
+                      py-2
+                      rounded-2xl
+                      border
+                      text-sm
+                      font-bold
+                      ${getStatusColor(
+                        project.status
+                      )}
+                    `}>
 
-                      new Date(
-                        project.created_at
-                      ).toLocaleDateString(
-                        "pl-PL"
-                      )
-                    }
+                      {
+                        project.status ||
+                        "Konsultacja"
+                      }
+
+                    </div>
+
+                    <div className="
+                      text-sm
+                      text-gray-500
+                    ">
+
+                      {
+
+                        new Date(
+                          project.created_at
+                        ).toLocaleDateString(
+                          "pl-PL"
+                        )
+                      }
+
+                    </div>
 
                   </div>
+
+                  {/* CLIENT */}
+
+                  {(project.name ||
+                    project.city) && (
+
+                    <div className="
+                      mb-6
+                    ">
+
+                      {project.name && (
+
+                        <div className="
+                          text-lg
+                          font-bold
+                        ">
+                          {project.name}
+                        </div>
+
+                      )}
+
+                      {project.city && (
+
+                        <div className="
+                          text-gray-400
+                        ">
+                          {project.city}
+                        </div>
+
+                      )}
+
+                    </div>
+
+                  )}
+
+                  {/* PROMPT */}
 
                   <div className="
                     text-xl
@@ -370,6 +496,50 @@ transition
                   ">
 
                     {project.prompt}
+
+                  </div>
+
+                  {/* FOOTER */}
+
+                  <div className="
+                    mt-8
+                    flex
+                    items-center
+                    justify-between
+                    gap-4
+                  ">
+
+                    <div className="
+                      text-sm
+                      text-gray-500
+                    ">
+                      DreamS AI
+                    </div>
+
+                    <button
+
+                      onClick={(e) => {
+
+                        e.stopPropagation();
+
+                        generatePremiumPDF({
+                          project,
+                        });
+                      }}
+
+                      className="
+                        bg-white
+                        text-black
+                        px-4
+                        py-3
+                        rounded-2xl
+                        font-bold
+                        hover:scale-105
+                        transition
+                      "
+                    >
+                      Pobierz PDF
+                    </button>
 
                   </div>
 

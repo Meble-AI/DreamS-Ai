@@ -1,5 +1,9 @@
 import Stripe from "stripe";
 
+import {
+  createClient,
+} from "@supabase/supabase-js";
+
 const stripe =
   new Stripe(
 
@@ -7,8 +11,16 @@ const stripe =
 
     {
       apiVersion:
-  "2025-04-30.basil" as any,
+        "2025-04-30.basil" as any,
     }
+  );
+
+const supabase =
+  createClient(
+
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
 export async function POST(
@@ -39,10 +51,43 @@ export async function POST(
       );
     }
 
+    // ====================================
+    // GET USER
+    // ====================================
+
+    const {
+
+      data: {
+        user,
+      },
+
+    } =
+      await supabase.auth.getUser();
+
+    if (!user?.email) {
+
+      return Response.json(
+
+        {
+          error:
+            "Brak użytkownika",
+        },
+
+        {
+          status: 401,
+        }
+      );
+    }
+
+    // ====================================
+    // STRIPE SESSION
+    // ====================================
+
     const session =
       await stripe.checkout.sessions.create({
 
         payment_method_types: [
+
           "card",
           "blik",
         ],
@@ -58,11 +103,18 @@ export async function POST(
 
         mode: "payment",
 
+        customer_email:
+          user.email,
+
         success_url:
           "https://dream-s-ai.vercel.app/success",
 
         cancel_url:
           "https://dream-s-ai.vercel.app/pricing",
+
+        expand: [
+          "line_items",
+        ],
       });
 
     return Response.json({
