@@ -1,7 +1,6 @@
 "use client";
 
 const plans = [
-
   {
     name: "START",
 
@@ -14,7 +13,7 @@ const plans = [
 
     priceId:
       process.env
-        .NEXT_PUBLIC_STRIPE_START_PRICE_ID,
+        .NEXT_PUBLIC_STRIPE_START_PRICE_ID || "",
   },
 
   {
@@ -29,7 +28,7 @@ const plans = [
 
     priceId:
       process.env
-        .NEXT_PUBLIC_STRIPE_PRO_PRICE_ID,
+        .NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "",
   },
 
   {
@@ -44,7 +43,7 @@ const plans = [
 
     priceId:
       process.env
-        .NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID,
+        .NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || "",
   },
 ];
 
@@ -56,10 +55,20 @@ export default function PricingPage() {
 
     try {
 
+      console.log("PRICE ID:", priceId);
+
+      if (!priceId) {
+
+        alert(
+          "Brak Stripe Price ID"
+        );
+
+        return;
+      }
+
       const res =
         await fetch(
           "/api/checkout",
-
           {
             method: "POST",
 
@@ -69,7 +78,6 @@ export default function PricingPage() {
             },
 
             body: JSON.stringify({
-
               priceId,
             }),
           }
@@ -78,10 +86,22 @@ export default function PricingPage() {
       const data =
         await res.json();
 
+      console.log("STRIPE RESPONSE:", data);
+
+      if (!res.ok) {
+
+        alert(
+          data.error ||
+          "Stripe error"
+        );
+
+        return;
+      }
+
       if (!data.url) {
 
         alert(
-          "Błąd Stripe"
+          "Brak URL Stripe"
         );
 
         return;
@@ -92,7 +112,10 @@ export default function PricingPage() {
 
     } catch (err) {
 
-      console.log(err);
+      console.log(
+        "CHECKOUT ERROR:",
+        err
+      );
 
       alert(
         "Błąd płatności"
@@ -102,46 +125,59 @@ export default function PricingPage() {
 
   return (
 
-    <main className="
-      min-h-screen
-      bg-black
-      text-white
-      p-10
-    ">
+    <main
+      className="
+        min-h-screen
+        bg-black
+        text-white
+        p-10
+      "
+    >
 
-      <div className="
-        max-w-7xl
-        mx-auto
-      ">
+      <div
+        className="
+          max-w-7xl
+          mx-auto
+        "
+      >
 
-        <div className="
-          text-center
-          mb-20
-        ">
+        <div
+          className="
+            text-center
+            mb-20
+          "
+        >
 
-          <h1 className="
-            text-7xl
-            font-bold
-            mb-8
-          ">
+          <h1
+            className="
+              text-7xl
+              font-bold
+              mb-8
+              text-center
+            "
+          >
             Pakiety DreamS AI
           </h1>
 
-          <p className="
-            text-2xl
-            text-gray-400
-          ">
+          <p
+            className="
+              text-2xl
+              text-gray-400
+            "
+          >
             Wybierz liczbę projektów
             AI dla swojej kuchni
           </p>
 
         </div>
 
-        <div className="
-          grid
-          lg:grid-cols-3
-          gap-8
-        ">
+        <div
+          className="
+            grid
+            lg:grid-cols-3
+            gap-8
+          "
+        >
 
           {plans.map((plan) => (
 
@@ -158,34 +194,46 @@ export default function PricingPage() {
               "
             >
 
-              <div className="
-                text-5xl
-                font-bold
-                mb-6
-              ">
+              <div
+                className="
+                  text-5xl
+                  font-bold
+                  mb-6
+                  text-center
+                "
+              >
                 {plan.name}
               </div>
 
-              <div className="
-                text-6xl
-                font-bold
-                mb-6
-              ">
+              <div
+                className="
+                  text-6xl
+                  font-bold
+                  mb-6
+                  text-center
+                "
+              >
                 {plan.price}
               </div>
 
-              <div className="
-                text-xl
-                text-gray-400
-                mb-10
-              ">
+              <div
+                className="
+                  text-xl
+                  text-gray-400
+                  mb-10
+                  text-center
+                "
+              >
                 {plan.description}
               </div>
 
-              <div className="
-                text-2xl
-                mb-10
-              ">
+              <div
+                className="
+                  text-2xl
+                  mb-10
+                  text-center
+                "
+              >
                 {plan.credits}
                 {" "}
                 projekt(y)
@@ -195,7 +243,7 @@ export default function PricingPage() {
 
                 onClick={() =>
                   checkout(
-                    plan.priceId!
+                    plan.priceId
                   )
                 }
 

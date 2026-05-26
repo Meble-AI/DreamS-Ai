@@ -1,27 +1,8 @@
 import Stripe from "stripe";
 
-import {
-  createClient,
-} from "@supabase/supabase-js";
-
-const stripe =
-  new Stripe(
-
-    process.env.STRIPE_SECRET_KEY!,
-
-    {
-      apiVersion:
-        "2025-04-30.basil" as any,
-    }
-  );
-
-const supabase =
-  createClient(
-
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+const stripe = new Stripe(
+  process.env.STRIPE_SECRET_KEY!
+);
 
 export async function POST(
   req: Request
@@ -29,111 +10,83 @@ export async function POST(
 
   try {
 
+    console.log("START CHECKOUT");
+
     const body =
       await req.json();
 
+    console.log("BODY:", body);
+
     const {
       priceId,
+      email,
     } = body;
+
+    console.log("PRICE ID:", priceId);
 
     if (!priceId) {
 
       return Response.json(
-
         {
-          error:
-            "Brak priceId",
+          error: "Brak priceId",
         },
-
         {
           status: 400,
         }
       );
     }
 
-    // ====================================
-    // GET USER
-    // ====================================
-
-    const {
-
-      data: {
-        user,
-      },
-
-    } =
-      await supabase.auth.getUser();
-
-    if (!user?.email) {
-
-      return Response.json(
-
-        {
-          error:
-            "Brak użytkownika",
-        },
-
-        {
-          status: 401,
-        }
-      );
-    }
-
-    // ====================================
-    // STRIPE SESSION
-    // ====================================
-
     const session =
       await stripe.checkout.sessions.create({
 
-        payment_method_types: [
+        mode: "payment",
 
+        payment_method_types: [
           "card",
           "blik",
         ],
 
         line_items: [
-
           {
             price: priceId,
-
             quantity: 1,
           },
         ],
 
-        mode: "payment",
-
         customer_email:
-          user.email,
+          email || undefined,
 
         success_url:
-          "https://dream-s-ai.vercel.app/success",
+          "https://dreamsai.pl/success",
 
         cancel_url:
-          "https://dream-s-ai.vercel.app/pricing",
-
-        expand: [
-          "line_items",
-        ],
+          "https://dreamsai.pl/pricing",
       });
 
-    return Response.json({
+    console.log("SESSION CREATED:");
+    console.log(session.url);
 
-      url:
-        session.url,
+    return Response.json({
+      url: session.url,
     });
 
-  } catch (err) {
+  } catch (err: any) {
 
+    console.log("");
+    console.log("========== STRIPE ERROR ==========");
     console.log(err);
+    console.log("MESSAGE:", err?.message);
+    console.log("TYPE:", err?.type);
+    console.log("CODE:", err?.code);
+    console.log("RAW:", err?.raw);
+    console.log("==================================");
+    console.log("");
 
     return Response.json(
-
       {
         error:
-          "Stripe error",
+          err?.message || "Stripe error",
       },
-
       {
         status: 500,
       }

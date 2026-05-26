@@ -267,13 +267,11 @@ export default function Home() {
               "
             >
 
-              {/* START */}
-
               <button
 
                 onClick={() => {
                   window.location.href =
-                    "/dashboard";
+                    "/register";
                 }}
 
                 className="
@@ -291,13 +289,11 @@ export default function Home() {
                 Rozpocznij projekt
               </button>
 
-              {/* SCANNER */}
-
               <button
 
                 onClick={() => {
                   window.location.href =
-                    "/dashboard";
+                    "/pricing";
                 }}
 
                 className="
@@ -314,7 +310,7 @@ export default function Home() {
                   transition
                 "
               >
-                Zobacz AI Room Scanner
+                Zobacz pakiety
               </button>
 
             </div>
@@ -325,15 +321,179 @@ export default function Home() {
 
       </section>
 
-      {/* ROOM SCANNER SECTION */}
+{/* ROOM SCANNER SECTION */}
 
-      <section
-        id="scanner"
+<section
+  id="scanner"
+  className="
+    bg-black
+    text-white
+    py-32
+    px-6
+  "
+>
+
+  <div
+    className="
+      max-w-7xl
+      mx-auto
+      grid
+      md:grid-cols-2
+      gap-20
+      items-center
+    "
+  >
+
+    {/* LEFT */}
+
+    <div>
+
+      <div
         className="
-          bg-black
+          text-sm
+          uppercase
+          tracking-[0.3em]
+          text-white/50
+          mb-6
+        "
+      >
+        AI ROOM SCANNER
+      </div>
+
+      <h2
+        className="
+          text-5xl
+          font-black
+          leading-tight
+        "
+      >
+
+        Skanuj pomieszczenie
+        telefonem
+
+      </h2>
+
+      <p
+        className="
+          text-xl
+          text-white/70
+          mt-8
+          leading-relaxed
+        "
+      >
+
+        DreamS AI analizuje pomieszczenie,
+        wykrywa ściany, okna, drzwi,
+        ergonomię i automatycznie
+        projektuje realistyczną kuchnię premium.
+
+      </p>
+
+      <div
+        className="
+          space-y-5
+          mt-12
+        "
+      >
+
+        {[
+          "Wykrywanie ścian i układu",
+          "Analiza miejsca na wyspę",
+          "Automatyczna ergonomia",
+          "Rzeczywiste proporcje",
+          "Projekt możliwy do wykonania",
+        ].map((item) => (
+
+          <div
+            key={item}
+            className="
+              flex
+              items-center
+              gap-4
+            "
+          >
+
+            <div
+              className="
+                w-3
+                h-3
+                rounded-full
+                bg-green-400
+              "
+            />
+
+            <span
+              className="
+                text-lg
+              "
+            >
+              {item}
+            </span>
+
+          </div>
+        ))}
+
+      </div>
+
+      <button
+
+        onClick={() => {
+          window.location.href =
+            "/login?redirect=room-scanner";
+        }}
+
+        className="
+          mt-12
+          bg-green-600
+          hover:bg-green-500
+          transition
+          px-10
+          py-5
+          rounded-2xl
+          font-bold
+          text-lg
           text-white
-          py-32
+        "
+      >
+        Uruchom AI Room Scanner
+      </button>
+
+    </div>
+
+    {/* RIGHT */}
+
+    <div
+      className="
+        relative
+      "
+    >
+
+      <img
+        src="/scanner-preview.jpg"
+        alt=""
+        className="
+          rounded-[40px]
+          shadow-2xl
+          border
+          border-white/10
+        "
+      />
+
+    </div>
+
+  </div>
+
+</section>
+
+      {/* FOOTER */}
+
+      <footer
+        className="
+          border-t
+          border-white/10
+          py-16
           px-6
+          bg-black
         "
       >
 
@@ -342,154 +502,114 @@ export default function Home() {
             max-w-7xl
             mx-auto
             grid
-            md:grid-cols-2
-            gap-20
-            items-center
+            md:grid-cols-3
+            gap-12
           "
         >
 
-          {/* LEFT */}
+          <div>
+
+           <img
+  src="/logo 1.png"
+  alt="DreamS AI"
+  className="
+    h-16
+    w-auto
+    mb-4
+  "
+/>
+
+            <p
+              className="
+                text-white/60
+                leading-relaxed
+              "
+            >
+              Inteligentne projektowanie
+              kuchni premium z pomocą AI.
+            </p>
+
+          </div>
 
           <div>
 
             <div
               className="
-                text-sm
-                uppercase
-                tracking-[0.3em]
-                text-white/50
-                mb-6
+                font-bold
+                mb-5
               "
             >
-              AI ROOM SCANNER
+              Nawigacja
             </div>
-
-            <h2
-              className="
-                text-5xl
-                font-black
-                leading-tight
-              "
-            >
-
-              Skanuj pomieszczenie
-              telefonem
-
-            </h2>
-
-            <p
-              className="
-                text-xl
-                text-white/70
-                mt-8
-                leading-relaxed
-              "
-            >
-
-              DreamS AI analizuje pomieszczenie,
-              wykrywa ściany, okna, drzwi,
-              ergonomię i automatycznie
-              projektuje realistyczną kuchnię premium.
-
-            </p>
 
             <div
               className="
-                space-y-5
-                mt-12
+                flex
+                flex-col
+                gap-3
+                text-white/70
               "
             >
 
-              {[
-                "Wykrywanie ścian i układu",
-                "Analiza miejsca na wyspę",
-                "Automatyczna ergonomia",
-                "Rzeczywiste proporcje",
-                "Projekt możliwy do wykonania",
-              ].map((item) => (
+              <a href="/pricing">
+                Cennik
+              </a>
 
-                <div
-                  key={item}
-                  className="
-                    flex
-                    items-center
-                    gap-4
-                  "
-                >
+              <a href="/login">
+                Logowanie
+              </a>
 
-                  <div
-                    className="
-                      w-3
-                      h-3
-                      rounded-full
-                      bg-green-400
-                    "
-                  />
+              <a href="/register">
+                Rejestracja
+              </a>
 
-                  <span
-                    className="
-                      text-lg
-                    "
-                  >
-                    {item}
-                  </span>
-
-                </div>
-              ))}
+              <a href="/reset-password">
+                Reset hasła
+              </a>
 
             </div>
 
-            {/* CTA */}
-
-            <button
-
-              onClick={() => {
-                window.location.href =
-                  "/dashboard";
-              }}
-
-              className="
-                mt-12
-                bg-white
-                text-black
-                px-10
-                py-5
-                rounded-2xl
-                font-bold
-                text-lg
-                hover:scale-[1.02]
-                transition
-              "
-            >
-              Uruchom AI Room Scanner
-            </button>
-
           </div>
 
-          {/* RIGHT */}
+          <div>
 
-          <div
-            className="
-              relative
-            "
-          >
-
-            <img
-              src="/scanner-preview.jpg"
-              alt=""
+            <div
               className="
-                rounded-[40px]
-                shadow-2xl
-                border
-                border-white/10
+                font-bold
+                mb-5
               "
-            />
+            >
+              Informacje
+            </div>
+
+            <div
+              className="
+                flex
+                flex-col
+                gap-3
+                text-white/70
+              "
+            >
+
+              <a href="/privacy-policy">
+                Polityka prywatności
+              </a>
+
+              <a href="/terms">
+                Regulamin
+              </a>
+
+              <a href="/cookies">
+                Pliki cookies
+              </a>
+
+            </div>
 
           </div>
 
         </div>
 
-      </section>
+      </footer>
 
     </main>
   );

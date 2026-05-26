@@ -185,34 +185,36 @@ export default function Home() {
         } =
           await supabase.auth.getUser();
 
-        if (!user?.id)
-          return;
+        if (!user?.email)
+  return;
 
-        const { data } =
-          await supabase
+const { data } =
+  await supabase
 
-            .from("profiles")
+    .from("profiles")
 
-            .select("*")
+    .select("*")
 
-            .eq(
-              "id",
-              user.id
-            )
+    .eq(
+      "email",
+      user.email
+    )
 
-            .single();
+    .maybeSingle();
 
-        if (data) {
+       console.log("USER:", user);
+console.log("PROFILE:", data);
 
-          setCredits(
-            data.credits || 0
-          );
+if (data) {
 
-          setPlan(
-            data.plan || "FREE"
-          );
-        }
+  setCredits(
+    data.credits || 0
+  );
 
+  setPlan(
+    data.plan || "FREE"
+  );
+}
       } catch (err) {
 
         console.log(err);
@@ -511,23 +513,23 @@ export default function Home() {
         } =
           await supabase.auth.getUser();
 
-        if (user?.id) {
+        if (user?.email) {
 
-          await supabase
+  await supabase
 
-            .from("profiles")
+    .from("profiles")
 
-            .update({
+    .update({
 
-              credits:
-                newCredits,
-            })
+      credits:
+        newCredits,
+    })
 
-            .eq(
-              "id",
-              user.id
-            );
-        }
+    .eq(
+      "email",
+      user.email
+    );
+}
 
       } catch (creditError) {
 
@@ -712,70 +714,90 @@ export default function Home() {
           </div>
 
           <div
-            className="
-              flex
-              gap-4
-              flex-wrap
-            "
-          >
+  className="
+    flex
+    gap-4
+    flex-wrap
+  "
+>
 
-            <button
+  <button
 
-              onClick={() =>
-                window.location.href =
-                  "/projects"
-              }
+    onClick={() =>
+      window.location.href =
+        "/projects"
+    }
 
-              className="
-                bg-blue-600
-                px-6
-                py-4
-                rounded-2xl
-                font-bold
-              "
-            >
-              Projekty
-            </button>
+    className="
+      bg-blue-600
+      px-6
+      py-4
+      rounded-2xl
+      font-bold
+    "
+  >
+    Projekty
+  </button>
 
-            <button
+  <button
 
-              onClick={generatePDF}
+    onClick={() =>
+      window.location.href =
+        "/room-scanner"
+    }
 
-              className="
-                bg-white
-                text-black
-                px-6
-                py-4
-                rounded-2xl
-                font-bold
-              "
-            >
-              PDF
-            </button>
+    className="
+      bg-green-600
+      hover:bg-green-500
+      text-white
+      px-6
+      py-4
+      rounded-2xl
+      font-bold
+    "
+  >
+    AI Room Scanner
+  </button>
 
-            <button
+  <button
 
-              onClick={async () => {
+    onClick={generatePDF}
 
-                await supabase.auth.signOut();
+    className="
+      bg-white
+      text-black
+      px-6
+      py-4
+      rounded-2xl
+      font-bold
+    "
+  >
+    PDF
+  </button>
 
-                window.location.href =
-                  "/";
-              }}
+  <button
 
-              className="
-                bg-red-500
-                text-white
-                px-6
-                py-4
-                rounded-2xl
-                font-bold
-              "
-            >
-              Wyloguj
-            </button>
+    onClick={async () => {
 
-          </div>
+      await supabase.auth.signOut();
+
+      window.location.href =
+        "/";
+    }}
+
+    className="
+      bg-red-500
+      text-white
+      px-6
+      py-4
+      rounded-2xl
+      font-bold
+    "
+  >
+    Wyloguj
+  </button>
+
+</div>
 
         </div>
 

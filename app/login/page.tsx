@@ -2,9 +2,13 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
+
+  const pathname =
+    usePathname();
 
   const [email, setEmail] =
     useState("");
@@ -19,10 +23,14 @@ export default function LoginPage() {
     useState(false);
 
   const [isRecovery, setIsRecovery] =
-    useState(false);
+    useState(
+      pathname === "/reset-password"
+    );
 
   const [isRegister, setIsRegister] =
-    useState(false);
+    useState(
+      pathname === "/register"
+    );
 
   useEffect(() => {
 
@@ -41,7 +49,6 @@ export default function LoginPage() {
 
           const accessToken =
             new URLSearchParams(
-
               hash.substring(1)
             ).get(
               "access_token"
@@ -49,7 +56,6 @@ export default function LoginPage() {
 
           const refreshToken =
             new URLSearchParams(
-
               hash.substring(1)
             ).get(
               "refresh_token"
@@ -142,7 +148,8 @@ export default function LoginPage() {
         "Konto zostało utworzone 🙂 Sprawdź email."
       );
 
-      setIsRegister(false);
+      window.location.href =
+        "/login";
 
     } catch (err) {
 
@@ -178,7 +185,7 @@ export default function LoginPage() {
 
           {
             redirectTo:
-              "https://dreams-ai.pl/login",
+              "https://dream-s-ai.vercel.app/login",
           }
         );
 
@@ -259,289 +266,114 @@ export default function LoginPage() {
       min-h-screen
       bg-black
       text-white
-      grid
-      lg:grid-cols-2
-      overflow-hidden
+      flex
+      items-center
+      justify-center
+      p-6
     ">
 
-      {/* LEWA STRONA */}
-
       <div className="
-        relative
-        hidden
-        lg:flex
-        flex-col
-        justify-between
-        p-16
+        w-full
+        max-w-md
+        bg-white/5
+        border
+        border-white/10
+        backdrop-blur-2xl
+        rounded-[40px]
+        p-10
+        shadow-2xl
       ">
 
-        {/* VIDEO */}
-
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-
-          className="
-            absolute
-            inset-0
-            w-full
-            h-full
-            object-cover
-            opacity-60
-          "
-        >
-
-          <source
-            src="/login-bg.mp4"
-            type="video/mp4"
-          />
-
-        </video>
-
         <div className="
-          absolute
-          inset-0
-          bg-gradient-to-r
-          from-black
-          via-black/60
-          to-transparent
-        " />
-
-        {/* CONTENT */}
-
-        <div className="
-          relative
-          z-10
+          flex
+          justify-center
+          mb-8
         ">
 
           <Image
             src="/logo.png"
             alt="DreamS AI"
-            width={260}
-            height={90}
+            width={220}
+            height={80}
             priority
-            style={{
-              width: "auto",
-              height: "auto",
-            }}
           />
 
-          <div className="
-            mt-16
-            max-w-2xl
-          ">
-
-            <h1 className="
-              text-7xl
-              font-bold
-              leading-[1.05]
-              tracking-tight
-            ">
-              Projektuj
-              <br />
-              kuchnie
-              <br />
-              premium z
-              <br />
-              pomocą AI
-            </h1>
-
-            <p className="
-              text-2xl
-              text-gray-300
-              mt-10
-              leading-relaxed
-            ">
-              Generuj wizualizacje,
-              wyceny i profesjonalne
-              projekty mebli na wymiar
-              w kilka minut.
-            </p>
-
-          </div>
-
         </div>
 
-        {/* CHAT CARD */}
-
-        <div className="
-          relative
-          z-10
-          max-w-xl
-          bg-white/10
-          border
-          border-white/10
-          backdrop-blur-2xl
-          rounded-[35px]
-          p-8
-          shadow-2xl
+        <h1 className="
+          text-5xl
+          font-bold
+          text-center
+          mb-5
         ">
-
-          <div className="
-            text-lg
-            mb-5
-            text-gray-300
-          ">
-            DreamS AI
-          </div>
-
-          <div className="
-            bg-black/40
-            rounded-3xl
-            p-6
-            text-xl
-            leading-relaxed
-          ">
-            Zaprojektuj nowoczesną
-            kuchnię premium z wyspą,
-            frontami kaszmir mat,
-            oświetleniem LED i
-            zabudową pod sufit.
-          </div>
-
-          <div className="
-            mt-6
-            bg-green-600/30
-            border
-            border-green-500/30
-            rounded-3xl
-            p-5
-            text-lg
-            leading-relaxed
-          ">
-            ✓ Wizualizacja gotowa
-            <br />
-            ✓ Wycena wygenerowana
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* PRAWA STRONA */}
-
-      <div className="
-        flex
-        items-center
-        justify-center
-        p-6
-        relative
-        overflow-hidden
-      ">
-
-        {/* GLOW */}
-
-        <div className="
-          absolute
-          top-0
-          right-0
-          w-[500px]
-          h-[500px]
-          bg-blue-600/20
-          blur-[160px]
-          rounded-full
-        " />
-
-        <div className="
-          absolute
-          bottom-0
-          left-0
-          w-[400px]
-          h-[400px]
-          bg-purple-600/20
-          blur-[160px]
-          rounded-full
-        " />
-
-        {/* LOGIN CARD */}
-
-        <div className="
-          relative
-          z-10
-          w-full
-          max-w-md
-          bg-white/5
-          border
-          border-white/10
-          backdrop-blur-2xl
-          rounded-[40px]
-          p-10
-          shadow-2xl
-        ">
-
-          {/* LOGO */}
-
-          <div className="
-            flex
-            justify-center
-            mb-8
-          ">
-
-            <Image
-              src="/logo.png"
-              alt="DreamS AI"
-              width={240}
-              height={90}
-              priority
-              style={{
-                width: "auto",
-                height: "auto",
-              }}
-            />
-
-          </div>
-
-          {/* HEADER */}
-
-          <h2 className="
-            text-5xl
-            font-bold
-            text-center
-            mb-5
-          ">
-
-            {
-              isRecovery
-                ? "Ustaw nowe hasło"
-                : isRegister
-                ? "Utwórz konto"
-                : "Witaj ponownie"
-            }
-
-          </h2>
-
-          <p className="
-            text-center
-            text-gray-400
-            text-lg
-            mb-10
-            leading-relaxed
-          ">
-
-            {
-              isRecovery
-                ? "Wprowadź nowe hasło"
-                : "DreamS AI — platforma AI dla producentów mebli premium"
-            }
-
-          </p>
-
-          {/* INPUTS */}
 
           {
+            isRecovery
+              ? "Ustaw nowe hasło"
+              : isRegister
+              ? "Załóż konto"
+              : "Zaloguj się"
+          }
 
-            isRecovery ? (
+        </h1>
+
+        <p className="
+          text-center
+          text-gray-400
+          mb-10
+          leading-relaxed
+        ">
+
+          {
+            isRecovery
+              ? "Wprowadź nowe hasło do konta"
+              : isRegister
+              ? "Utwórz konto i rozpocznij projektowanie z AI"
+              : "Zaloguj się do DreamS AI"
+          }
+
+        </p>
+
+        {
+
+          isRecovery ? (
+
+            <input
+              type="password"
+              placeholder="Nowe hasło"
+
+              value={newPassword}
+
+              onChange={(e) =>
+                setNewPassword(
+                  e.target.value
+                )
+              }
+
+              className="
+                w-full
+                p-5
+                rounded-3xl
+                bg-white
+                text-black
+                outline-none
+              "
+            />
+
+          ) : (
+
+            <div className="
+              space-y-5
+            ">
 
               <input
-                type="password"
-                placeholder="Nowe hasło"
+                type="email"
+                placeholder="Email"
 
-                value={newPassword}
+                value={email}
 
                 onChange={(e) =>
-                  setNewPassword(
+                  setEmail(
                     e.target.value
                   )
                 }
@@ -553,181 +385,148 @@ export default function LoginPage() {
                   bg-white
                   text-black
                   outline-none
-                  text-lg
                 "
               />
 
-            ) : (
+              <input
+                type="password"
+                placeholder="Hasło"
 
-              <div className="
-                space-y-5
-              ">
+                value={password}
 
-                <input
-                  type="email"
-                  placeholder="Email"
+                onChange={(e) =>
+                  setPassword(
+                    e.target.value
+                  )
+                }
 
-                  value={email}
+                className="
+                  w-full
+                  p-5
+                  rounded-3xl
+                  bg-white
+                  text-black
+                  outline-none
+                "
+              />
 
-                  onChange={(e) =>
-                    setEmail(
-                      e.target.value
-                    )
-                  }
+            </div>
 
-                  className="
-                    w-full
-                    p-5
-                    rounded-3xl
-                    bg-white
-                    text-black
-                    outline-none
-                    text-lg
-                  "
-                />
+          )
+        }
 
-                <input
-                  type="password"
-                  placeholder="Hasło"
+        <button
 
-                  value={password}
-
-                  onChange={(e) =>
-                    setPassword(
-                      e.target.value
-                    )
-                  }
-
-                  className="
-                    w-full
-                    p-5
-                    rounded-3xl
-                    bg-white
-                    text-black
-                    outline-none
-                    text-lg
-                  "
-                />
-
-              </div>
-
-            )
+          onClick={
+            isRecovery
+              ? updatePassword
+              : isRegister
+              ? register
+              : login
           }
 
-          {/* BUTTON */}
+          disabled={loading}
 
-          <button
-
-            onClick={
-              isRecovery
-                ? updatePassword
-                : isRegister
-                ? register
-                : login
-            }
-
-            disabled={loading}
-
-            className="
-              w-full
-              mt-8
-              bg-green-600
-              hover:bg-green-500
-              transition
-              text-white
-              p-5
-              rounded-3xl
-              font-bold
-              text-2xl
-              shadow-2xl
-            "
-          >
-
-            {
-              loading
-                ? "Ładowanie..."
-                : isRecovery
-                ? "Zmień hasło"
-                : isRegister
-                ? "Zarejestruj się"
-                : "Zaloguj się"
-            }
-
-          </button>
-
-          {/* LINKS */}
+          className="
+            w-full
+            mt-8
+            bg-green-600
+            hover:bg-green-500
+            transition
+            p-5
+            rounded-3xl
+            text-white
+            font-bold
+            text-xl
+          "
+        >
 
           {
-
-            !isRecovery && (
-
-              <div className="
-                flex
-                items-center
-                justify-center
-                gap-6
-                mt-6
-                text-sm
-              ">
-
-                <button
-
-                  onClick={resetPassword}
-
-                  className="
-                    text-gray-400
-                    hover:text-white
-                    transition
-                  "
-                >
-                  Reset hasła
-                </button>
-
-                <button
-
-                  onClick={() =>
-                    setIsRegister(
-                      !isRegister
-                    )
-                  }
-
-                  className="
-                    text-gray-400
-                    hover:text-white
-                    transition
-                  "
-                >
-
-                  {
-                    isRegister
-                      ? "Logowanie"
-                      : "Rejestracja"
-                  }
-
-                </button>
-
-              </div>
-
-            )
+            loading
+              ? "Ładowanie..."
+              : isRecovery
+              ? "Zmień hasło"
+              : isRegister
+              ? "Zarejestruj się"
+              : "Zaloguj się"
           }
 
-          {/* FOOTER */}
+        </button>
 
-          <p className="
-            text-center
-            text-gray-500
-            text-sm
-            mt-10
-            leading-relaxed
-          ">
-            Logując się akceptujesz
-            politykę prywatności,
-            pliki cookies oraz
-            regulamin platformy
-            DreamS AI.
-          </p>
+        {
 
-        </div>
+          !isRecovery && (
+
+            <div className="
+              flex
+              items-center
+              justify-center
+              gap-6
+              mt-6
+              text-sm
+            ">
+
+              <button
+
+                onClick={resetPassword}
+
+                className="
+                  text-gray-400
+                  hover:text-white
+                  transition
+                "
+              >
+                Reset hasła
+              </button>
+
+              <button
+
+                onClick={() => {
+
+                  if (isRegister) {
+
+                    window.location.href =
+                      "/login";
+
+                  } else {
+
+                    window.location.href =
+                      "/register";
+                  }
+                }}
+
+                className="
+                  text-gray-400
+                  hover:text-white
+                  transition
+                "
+              >
+
+                {
+                  isRegister
+                    ? "Logowanie"
+                    : "Rejestracja"
+                }
+
+              </button>
+
+            </div>
+
+          )
+        }
+
+        <p className="
+          text-center
+          text-gray-500
+          text-sm
+          mt-10
+          leading-relaxed
+        ">
+          Logując się akceptujesz
+          regulamin, politykę prywatności
+          oraz wykorzystanie plików cookies
+          w serwisie DreamS AI.
+        </p>
 
       </div>
 
