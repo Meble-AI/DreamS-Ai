@@ -56,6 +56,16 @@ export default function RoomScannerPage() {
       const data =
         await res.json();
 
+      if (!res.ok) {
+
+        alert(
+          data.error ||
+          "Błąd AI"
+        );
+
+        return;
+      }
+
       setResult(data);
 
       setHistory(

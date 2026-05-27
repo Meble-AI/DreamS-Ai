@@ -62,16 +62,25 @@ export default function Home() {
             window.location.search
           );
 
-        const currentProjectId =
-          params.get("project");
+const currentProjectId =
+  params.get("project");
 
-        if (
-          !currentProjectId
-        ) return;
+const savedProject =
+  localStorage.getItem(
+    "dreams_last_project"
+  );
 
-        setProjectId(
-          currentProjectId
-        );
+const activeProjectId =
+  currentProjectId ||
+  savedProject;
+
+if (
+  !activeProjectId
+) return;
+
+setProjectId(
+  activeProjectId
+);
 
         const { data } =
           await supabase
@@ -82,7 +91,7 @@ export default function Home() {
 
             .eq(
               "id",
-              currentProjectId
+              activeProjectId
             )
 
             .single();
@@ -264,17 +273,18 @@ if (data) {
     return "Konsultacja";
   }
 
-  async function saveProject(
-    updatedChat: any[],
-    memory: any,
-    previewImage?: string,
-    status?: string
-  ) {
+async function saveProject(
+  updatedChat: any[],
+  memory: any,
+  previewImage?: string,
+  status?: string
+) {
 
-    try {
+  try {
 
-      if (projectId) {
+    if (projectId) {
 
+      const { error } =
         await supabase
 
           .from("projects")
@@ -301,71 +311,93 @@ if (data) {
             projectId
           );
 
-        return;
-      }
+      if (error) {
 
-      const {
-        data,
-      } =
-        await supabase
-
-          .from("projects")
-
-          .insert([
-
-            {
-              user_email:
-                email,
-
-              prompt:
-                message,
-
-              image_url:
-                previewImage,
-
-              conversation:
-                updatedChat,
-
-              memory,
-
-              status,
-
-              name,
-              phone,
-              city,
-            },
-          ])
-
-          .select()
-
-          .single();
-
-      if (
-        data?.id
-      ) {
-
-        setProjectId(
-          data.id
-        );
-
-        window.history.replaceState(
-
-          {},
-
-          "",
-
-          `/dashboard?project=${data.id}`
+        console.log(
+          "UPDATE ERROR:",
+          error
         );
       }
 
-    } catch (err) {
+      return;
+    }
+
+    const {
+      data,
+      error,
+    } =
+      await supabase
+
+        .from("projects")
+
+        .insert([
+
+          {
+            user_email:
+              email,
+
+            prompt:
+              message,
+
+            image_url:
+              previewImage,
+
+            conversation:
+              updatedChat,
+
+            memory,
+
+            status,
+
+            name,
+            phone,
+            city,
+          },
+        ])
+
+        .select()
+
+        .single();
+
+    if (error) {
 
       console.log(
-        "SAVE ERROR:",
-        err
+        "CREATE ERROR:",
+        error
+      );
+
+      return;
+    }
+
+    if (data?.id) {
+
+      setProjectId(
+        data.id
+      );
+
+      localStorage.setItem(
+        "dreams_last_project",
+        data.id
+      );
+
+      window.history.replaceState(
+
+        {},
+
+        "",
+
+        `/dashboard?project=${data.id}`
       );
     }
+
+  } catch (err) {
+
+    console.log(
+      "SAVE ERROR:",
+      err
+    );
   }
+}
 
   async function sendMessage() {
 
@@ -908,48 +940,6 @@ if (data) {
           </div>
 
         </div>
-
-        {/* MEMORY */}
-
-        {projectMemory && (
-
-          <div
-            className="
-              bg-white/5
-              border
-              border-white/10
-              rounded-3xl
-              p-6
-              mb-10
-            "
-          >
-
-            <div
-              className="
-                text-2xl
-                font-bold
-                mb-4
-              "
-            >
-              Pamięć projektu
-            </div>
-
-            <pre
-              className="
-                text-sm
-                overflow-auto
-                text-green-300
-              "
-            >
-              {JSON.stringify(
-                projectMemory,
-                null,
-                2
-              )}
-            </pre>
-
-          </div>
-        )}
 
         {/* PROJECT VERSIONS */}
 
