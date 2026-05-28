@@ -1,6 +1,8 @@
+export const maxDuration = 60;
 "use client";
 
 import { useState } from "react";
+
 
 export default function RoomScannerPage() {
 
@@ -66,7 +68,22 @@ export default function RoomScannerPage() {
         return;
       }
 
-      setResult(data);
+  
+  await res.json();
+
+if (!res.ok) {
+
+  console.error(data);
+
+  alert(
+    data.error ||
+    "Błąd AI Room Scanner"
+  );
+
+  return;
+}
+
+setResult(data);
 
       setHistory(
         data.history || []
