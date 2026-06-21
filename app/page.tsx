@@ -164,7 +164,7 @@ export default function Home() {
                   mt-4
                 "
               >
-                Kuchnie tworzone przez AI
+                Zobacz swoją przyszłą kuchnię zanim ją kupisz
               </span>
 
             </h1>

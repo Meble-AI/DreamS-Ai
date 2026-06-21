@@ -3,14 +3,10 @@
 const plans = [
   {
     name: "START",
-
-    price: "39,99 zł",
-
+    oldPrice: "39,99 zł",
+    price: "19,99 zł",
     credits: 1,
-
-    description:
-      "1 projekt kuchni premium z AI",
-
+    description: "1 projekt kuchni premium z AI",
     priceId:
       process.env
         .NEXT_PUBLIC_STRIPE_START_PRICE_ID || "",
@@ -18,14 +14,10 @@ const plans = [
 
   {
     name: "PRO",
-
-    price: "59,99 zł",
-
+    oldPrice: "59,99 zł",
+    price: "29,99 zł",
     credits: 2,
-
-    description:
-      "2 projekty + więcej możliwości",
-
+    description: "2 projekty + więcej możliwości",
     priceId:
       process.env
         .NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "",
@@ -33,14 +25,10 @@ const plans = [
 
   {
     name: "PREMIUM",
-
-    price: "99,99 zł",
-
+    oldPrice: "99,99 zł",
+    price: "49,99 zł",
     credits: 3,
-
-    description:
-      "3 projekty premium + pełna swoboda",
-
+    description: "3 projekty premium + pełna swoboda",
     priceId:
       process.env
         .NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || "",
@@ -205,16 +193,60 @@ export default function PricingPage() {
                 {plan.name}
               </div>
 
-              <div
-                className="
-                  text-6xl
-                  font-bold
-                  mb-6
-                  text-center
-                "
-              >
-                {plan.price}
-              </div>
+              <div className="text-center mb-6">
+
+  <div
+    className="
+      text-2xl
+      text-gray-500
+      line-through
+      mb-2
+    "
+  >
+    {plan.oldPrice}
+  </div>
+
+  <div
+    className="
+      text-6xl
+      font-bold
+      text-green-400
+    "
+  >
+    {plan.price}
+  </div>
+
+  <div
+    className="
+      mt-3
+      inline-block
+      bg-red-600
+      px-4
+      py-2
+      rounded-full
+      text-lg
+      font-bold
+    "
+  >
+    🔥 RABAT 50%
+  </div>
+
+</div>
+<div
+  className="
+    mt-8
+    inline-block
+    bg-red-600
+    text-white
+    px-8
+    py-4
+    rounded-full
+    font-bold
+    text-xl
+  "
+>
+  🔥 PROMOCJA -50% TYLKO TERAZ 🔥
+</div>
 
               <div
                 className="
