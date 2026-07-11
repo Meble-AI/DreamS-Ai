@@ -1,7 +1,15 @@
+export const runtime = "nodejs";
+
 import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(
   process.env.STRIPE_SECRET_KEY!
+);
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_KEY!
 );
 
 export async function POST(
@@ -10,25 +18,120 @@ export async function POST(
   try {
     console.log("START CHECKOUT");
 
-    const body = await req.json();
+    // =========================
+    // SPRAWDZENIE TOKENU
+    // =========================
 
-    console.log("BODY:", body);
+    const authorization =
+      req.headers.get("authorization");
+
+    if (
+      !authorization ||
+      !authorization.startsWith("Bearer ")
+    ) {
+      return Response.json(
+        {
+          error:
+            "Musisz być zalogowany, aby kupić kredyty.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const accessToken =
+      authorization.replace(
+        "Bearer ",
+        ""
+      );
+
+    if (!accessToken) {
+      return Response.json(
+        {
+          error:
+            "Brak ważnej sesji użytkownika.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    // Supabase sprawdza, czy token jest prawidłowy
+    const {
+      data: userData,
+      error: userError,
+    } = await supabase.auth.getUser(
+      accessToken
+    );
+
+    if (
+      userError ||
+      !userData.user
+    ) {
+      console.error(
+        "SUPABASE AUTH ERROR:",
+        userError
+      );
+
+      return Response.json(
+        {
+          error:
+            "Sesja wygasła. Zaloguj się ponownie.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const user =
+      userData.user;
+
+    if (!user.email) {
+      return Response.json(
+        {
+          error:
+            "Na koncie nie ma adresu e-mail.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // =========================
+    // ODCZYT DANYCH PAKIETU
+    // =========================
+
+    const body =
+      await req.json();
 
     const {
       priceId,
-      email,
-      userId,
       planName,
     } = body;
 
-    console.log("PRICE ID:", priceId);
-    console.log("USER ID:", userId);
-    console.log("EMAIL:", email);
-    console.log("PLAN:", planName);
+    console.log(
+      "VERIFIED USER ID:",
+      user.id
+    );
 
-    // =========================
-    // WALIDACJA DANYCH
-    // =========================
+    console.log(
+      "VERIFIED EMAIL:",
+      user.email
+    );
+
+    console.log(
+      "PRICE ID:",
+      priceId
+    );
+
+    console.log(
+      "PLAN:",
+      planName
+    );
 
     if (!priceId) {
       return Response.json(
@@ -41,50 +144,50 @@ export async function POST(
       );
     }
 
-    if (!userId) {
-      return Response.json(
-        {
-          error:
-            "Musisz być zalogowany, aby kupić kredyty.",
-        },
-        {
-          status: 401,
-        }
+    // =========================
+    // DOZWOLONE PAKIETY
+    // =========================
+
+    const startPriceId =
+      process.env
+        .NEXT_PUBLIC_STRIPE_START_PRICE_ID;
+
+    const proPriceId =
+      process.env
+        .NEXT_PUBLIC_STRIPE_PRO_PRICE_ID;
+
+    const premiumPriceId =
+      process.env
+        .NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID;
+
+    const allowedPrices =
+      new Map<string, string>();
+
+    if (startPriceId) {
+      allowedPrices.set(
+        startPriceId,
+        "START"
       );
     }
 
-    if (!email) {
-      return Response.json(
-        {
-          error:
-            "Brak adresu e-mail użytkownika.",
-        },
-        {
-          status: 400,
-        }
+    if (proPriceId) {
+      allowedPrices.set(
+        proPriceId,
+        "PRO"
       );
     }
 
-    // =========================
-    // DOZWOLONE PRICE ID
-    // =========================
+    if (premiumPriceId) {
+      allowedPrices.set(
+        premiumPriceId,
+        "PREMIUM"
+      );
+    }
 
-    const allowedPriceIds = [
-      process.env
-        .NEXT_PUBLIC_STRIPE_START_PRICE_ID,
+    const verifiedPlanName =
+      allowedPrices.get(priceId);
 
-      process.env
-        .NEXT_PUBLIC_STRIPE_PRO_PRICE_ID,
-
-      process.env
-        .NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID,
-    ].filter(Boolean);
-
-    if (
-      !allowedPriceIds.includes(
-        priceId
-      )
-    ) {
+    if (!verifiedPlanName) {
       return Response.json(
         {
           error:
@@ -116,26 +219,27 @@ export async function POST(
           },
         ],
 
-        customer_email: email,
+        customer_email:
+          user.email,
 
-        // Id użytkownika Supabase
-        client_reference_id: userId,
+        // Zweryfikowane ID użytkownika
+        // pobrane bezpośrednio z Supabase
+        client_reference_id:
+          user.id,
 
-        // Dane odczytywane później
-        // przez webhook Stripe
         metadata: {
-          userId,
+          userId: user.id,
           priceId,
           planName:
-            planName || "UNKNOWN",
+            verifiedPlanName,
         },
 
         payment_intent_data: {
           metadata: {
-            userId,
+            userId: user.id,
             priceId,
             planName:
-              planName || "UNKNOWN",
+              verifiedPlanName,
           },
         },
 
@@ -146,45 +250,29 @@ export async function POST(
           "https://dreamsai.pl/pricing",
       });
 
-    console.log("SESSION CREATED:");
-    console.log(session.id);
-    console.log(session.url);
+    console.log(
+      "SESSION CREATED:",
+      session.id
+    );
 
     return Response.json({
       url: session.url,
     });
-  } catch (err: any) {
-    console.log("");
-    console.log(
-      "========== STRIPE ERROR =========="
+  } catch (err: unknown) {
+    console.error(
+      "========== STRIPE CHECKOUT ERROR =========="
     );
-    console.log(err);
-    console.log(
-      "MESSAGE:",
-      err?.message
-    );
-    console.log(
-      "TYPE:",
-      err?.type
-    );
-    console.log(
-      "CODE:",
-      err?.code
-    );
-    console.log(
-      "RAW:",
-      err?.raw
-    );
-    console.log(
-      "=================================="
-    );
-    console.log("");
+
+    console.error(err);
+
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Stripe error";
 
     return Response.json(
       {
-        error:
-          err?.message ||
-          "Stripe error",
+        error: message,
       },
       {
         status: 500,

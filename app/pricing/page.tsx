@@ -14,7 +14,6 @@ const plans = [
     priceId:
       process.env.NEXT_PUBLIC_STRIPE_START_PRICE_ID || "",
   },
-
   {
     name: "PRO",
     oldPrice: "59,99 zł",
@@ -24,7 +23,6 @@ const plans = [
     priceId:
       process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "",
   },
-
   {
     name: "PREMIUM",
     oldPrice: "99,99 zł",
@@ -47,8 +45,6 @@ export default function PricingPage() {
     planName: string
   ) {
     try {
-      console.log("PRICE ID:", priceId);
-
       if (!priceId) {
         alert("Brak Stripe Price ID");
         return;
@@ -56,80 +52,73 @@ export default function PricingPage() {
 
       setLoadingPlan(planName);
 
-      // =========================
-      // SPRAWDZENIE UŻYTKOWNIKA
-      // =========================
-
+      // Pobieramy aktualną sesję Supabase
       const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      if (userError) {
-        console.error(
-          "SUPABASE USER ERROR:",
-          userError
-        );
-      }
-
-      // Użytkownik nie jest zalogowany
-      if (!user) {
+      // Brak sesji = brak możliwości zakupu
+      if (
+        sessionError ||
+        !session ||
+        !session.access_token ||
+        !session.user
+      ) {
         alert(
           "Aby kupić projekty, musisz najpierw utworzyć konto lub się zalogować."
         );
 
-        router.push(
-          "/login?redirect=/pricing"
-        );
-
+        router.push("/login?redirect=/pricing");
         return;
       }
 
-      if (!user.email) {
+      // Wysyłamy do serwera token logowania.
+      // Nie wysyłamy userId ani emaila.
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+
+        body: JSON.stringify({
+          priceId,
+          planName,
+        }),
+      });
+
+      let data: {
+        url?: string;
+        error?: string;
+      };
+
+      try {
+        data = await res.json();
+      } catch {
         alert(
-          "Na Twoim koncie brakuje adresu e-mail."
+          "Serwer zwrócił nieprawidłową odpowiedź. Spróbuj ponownie."
         );
-
         return;
       }
 
-      // =========================
-      // TWORZENIE PŁATNOŚCI
-      // =========================
+      if (res.status === 401) {
+        await supabase.auth.signOut();
 
-      const res = await fetch(
-        "/api/checkout",
-        {
-          method: "POST",
+        alert(
+          "Twoja sesja wygasła. Zaloguj się ponownie."
+        );
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            priceId,
-            userId: user.id,
-            email: user.email,
-            planName,
-          }),
-        }
-      );
-
-      const data =
-        await res.json();
-
-      console.log(
-        "STRIPE RESPONSE:",
-        data
-      );
+        router.push("/login?redirect=/pricing");
+        return;
+      }
 
       if (!res.ok) {
         alert(
           data.error ||
             "Nie udało się rozpocząć płatności."
         );
-
         return;
       }
 
@@ -137,17 +126,12 @@ export default function PricingPage() {
         alert(
           "Stripe nie zwrócił adresu płatności."
         );
-
         return;
       }
 
-      window.location.href =
-        data.url;
+      window.location.href = data.url;
     } catch (err) {
-      console.error(
-        "CHECKOUT ERROR:",
-        err
-      );
+      console.error("CHECKOUT ERROR:", err);
 
       alert(
         "Wystąpił błąd podczas uruchamiania płatności."
@@ -296,8 +280,7 @@ export default function PricingPage() {
                       text-xl
                     "
                   >
-                    🔥 PROMOCJA -50% TYLKO
-                    TERAZ 🔥
+                    🔥 PROMOCJA -50% TYLKO TERAZ 🔥
                   </div>
                 </div>
 
@@ -324,9 +307,7 @@ export default function PricingPage() {
 
                 <button
                   type="button"
-                  disabled={
-                    loadingPlan !== null
-                  }
+                  disabled={loadingPlan !== null}
                   onClick={() =>
                     checkout(
                       plan.priceId,
@@ -347,7 +328,7 @@ export default function PricingPage() {
                   "
                 >
                   {isLoading
-                    ? "Przekierowanie..."
+                    ? "Sprawdzanie konta..."
                     : "Kup teraz"}
                 </button>
               </div>
