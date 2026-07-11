@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+
 const plans = [
   {
     name: "START",
@@ -8,8 +12,7 @@ const plans = [
     credits: 1,
     description: "1 projekt kuchni premium z AI",
     priceId:
-      process.env
-        .NEXT_PUBLIC_STRIPE_START_PRICE_ID || "",
+      process.env.NEXT_PUBLIC_STRIPE_START_PRICE_ID || "",
   },
 
   {
@@ -19,8 +22,7 @@ const plans = [
     credits: 2,
     description: "2 projekty + więcej możliwości",
     priceId:
-      process.env
-        .NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "",
+      process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "",
   },
 
   {
@@ -30,66 +32,110 @@ const plans = [
     credits: 3,
     description: "3 projekty premium + pełna swoboda",
     priceId:
-      process.env
-        .NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || "",
+      process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || "",
   },
 ];
 
 export default function PricingPage() {
+  const router = useRouter();
+
+  const [loadingPlan, setLoadingPlan] =
+    useState<string | null>(null);
 
   async function checkout(
-    priceId: string
+    priceId: string,
+    planName: string
   ) {
-
     try {
-
       console.log("PRICE ID:", priceId);
 
       if (!priceId) {
+        alert("Brak Stripe Price ID");
+        return;
+      }
 
+      setLoadingPlan(planName);
+
+      // =========================
+      // SPRAWDZENIE UŻYTKOWNIKA
+      // =========================
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.error(
+          "SUPABASE USER ERROR:",
+          userError
+        );
+      }
+
+      // Użytkownik nie jest zalogowany
+      if (!user) {
         alert(
-          "Brak Stripe Price ID"
+          "Aby kupić projekty, musisz najpierw utworzyć konto lub się zalogować."
+        );
+
+        router.push(
+          "/login?redirect=/pricing"
         );
 
         return;
       }
 
-      const res =
-        await fetch(
-          "/api/checkout",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              priceId,
-            }),
-          }
+      if (!user.email) {
+        alert(
+          "Na Twoim koncie brakuje adresu e-mail."
         );
+
+        return;
+      }
+
+      // =========================
+      // TWORZENIE PŁATNOŚCI
+      // =========================
+
+      const res = await fetch(
+        "/api/checkout",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            priceId,
+            userId: user.id,
+            email: user.email,
+            planName,
+          }),
+        }
+      );
 
       const data =
         await res.json();
 
-      console.log("STRIPE RESPONSE:", data);
+      console.log(
+        "STRIPE RESPONSE:",
+        data
+      );
 
       if (!res.ok) {
-
         alert(
           data.error ||
-          "Stripe error"
+            "Nie udało się rozpocząć płatności."
         );
 
         return;
       }
 
       if (!data.url) {
-
         alert(
-          "Brak URL Stripe"
+          "Stripe nie zwrócił adresu płatności."
         );
 
         return;
@@ -97,22 +143,21 @@ export default function PricingPage() {
 
       window.location.href =
         data.url;
-
     } catch (err) {
-
-      console.log(
+      console.error(
         "CHECKOUT ERROR:",
         err
       );
 
       alert(
-        "Błąd płatności"
+        "Wystąpił błąd podczas uruchamiania płatności."
       );
+    } finally {
+      setLoadingPlan(null);
     }
   }
 
   return (
-
     <main
       className="
         min-h-screen
@@ -121,21 +166,18 @@ export default function PricingPage() {
         p-10
       "
     >
-
       <div
         className="
           max-w-7xl
           mx-auto
         "
       >
-
         <div
           className="
             text-center
             mb-20
           "
         >
-
           <h1
             className="
               text-7xl
@@ -153,10 +195,9 @@ export default function PricingPage() {
               text-gray-400
             "
           >
-            Wybierz liczbę projektów
-            AI dla swojej kuchni
+            Wybierz liczbę projektów AI
+            dla swojej kuchni
           </p>
-
         </div>
 
         <div
@@ -166,141 +207,154 @@ export default function PricingPage() {
             gap-8
           "
         >
+          {plans.map((plan) => {
+            const isLoading =
+              loadingPlan === plan.name;
 
-          {plans.map((plan) => (
-
-            <div
-              key={plan.name}
-
-              className="
-                bg-white/5
-                border
-                border-white/10
-                rounded-[40px]
-                p-10
-                backdrop-blur-2xl
-              "
-            >
-
+            return (
               <div
+                key={plan.name}
                 className="
-                  text-5xl
-                  font-bold
-                  mb-6
-                  text-center
+                  bg-white/5
+                  border
+                  border-white/10
+                  rounded-[40px]
+                  p-10
+                  backdrop-blur-2xl
                 "
               >
-                {plan.name}
+                <div
+                  className="
+                    text-5xl
+                    font-bold
+                    mb-6
+                    text-center
+                  "
+                >
+                  {plan.name}
+                </div>
+
+                <div
+                  className="
+                    text-center
+                    mb-6
+                  "
+                >
+                  <div
+                    className="
+                      text-2xl
+                      text-gray-500
+                      line-through
+                      mb-2
+                    "
+                  >
+                    {plan.oldPrice}
+                  </div>
+
+                  <div
+                    className="
+                      text-6xl
+                      font-bold
+                      text-green-400
+                    "
+                  >
+                    {plan.price}
+                  </div>
+
+                  <div
+                    className="
+                      mt-3
+                      inline-block
+                      bg-red-600
+                      px-4
+                      py-2
+                      rounded-full
+                      text-lg
+                      font-bold
+                    "
+                  >
+                    🔥 RABAT 50%
+                  </div>
+                </div>
+
+                <div
+                  className="
+                    mt-8
+                    mb-8
+                    text-center
+                  "
+                >
+                  <div
+                    className="
+                      inline-block
+                      bg-red-600
+                      text-white
+                      px-8
+                      py-4
+                      rounded-full
+                      font-bold
+                      text-xl
+                    "
+                  >
+                    🔥 PROMOCJA -50% TYLKO
+                    TERAZ 🔥
+                  </div>
+                </div>
+
+                <div
+                  className="
+                    text-xl
+                    text-gray-400
+                    mb-10
+                    text-center
+                  "
+                >
+                  {plan.description}
+                </div>
+
+                <div
+                  className="
+                    text-2xl
+                    mb-10
+                    text-center
+                  "
+                >
+                  {plan.credits} projekt(y)
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    loadingPlan !== null
+                  }
+                  onClick={() =>
+                    checkout(
+                      plan.priceId,
+                      plan.name
+                    )
+                  }
+                  className="
+                    w-full
+                    bg-green-600
+                    hover:bg-green-500
+                    disabled:bg-gray-600
+                    disabled:cursor-not-allowed
+                    transition
+                    p-5
+                    rounded-3xl
+                    text-2xl
+                    font-bold
+                  "
+                >
+                  {isLoading
+                    ? "Przekierowanie..."
+                    : "Kup teraz"}
+                </button>
               </div>
-
-              <div className="text-center mb-6">
-
-  <div
-    className="
-      text-2xl
-      text-gray-500
-      line-through
-      mb-2
-    "
-  >
-    {plan.oldPrice}
-  </div>
-
-  <div
-    className="
-      text-6xl
-      font-bold
-      text-green-400
-    "
-  >
-    {plan.price}
-  </div>
-
-  <div
-    className="
-      mt-3
-      inline-block
-      bg-red-600
-      px-4
-      py-2
-      rounded-full
-      text-lg
-      font-bold
-    "
-  >
-    🔥 RABAT 50%
-  </div>
-
-</div>
-<div
-  className="
-    mt-8
-    inline-block
-    bg-red-600
-    text-white
-    px-8
-    py-4
-    rounded-full
-    font-bold
-    text-xl
-  "
->
-  🔥 PROMOCJA -50% TYLKO TERAZ 🔥
-</div>
-
-              <div
-                className="
-                  text-xl
-                  text-gray-400
-                  mb-10
-                  text-center
-                "
-              >
-                {plan.description}
-              </div>
-
-              <div
-                className="
-                  text-2xl
-                  mb-10
-                  text-center
-                "
-              >
-                {plan.credits}
-                {" "}
-                projekt(y)
-              </div>
-
-              <button
-
-                onClick={() =>
-                  checkout(
-                    plan.priceId
-                  )
-                }
-
-                className="
-                  w-full
-                  bg-green-600
-                  hover:bg-green-500
-                  transition
-                  p-5
-                  rounded-3xl
-                  text-2xl
-                  font-bold
-                "
-              >
-                Kup teraz
-              </button>
-
-            </div>
-
-          ))}
-
+            );
+          })}
         </div>
-
       </div>
-
     </main>
   );
 }
