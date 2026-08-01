@@ -1,8 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+
+const PENDING_CHECKOUT_KEY =
+  "dreams_ai_pending_checkout";
+
+type PendingCheckout = {
+  priceId: string;
+  planName: string;
+};
 
 const plans = [
   {
@@ -10,27 +23,33 @@ const plans = [
     oldPrice: "39,99 zł",
     price: "19,99 zł",
     credits: 1,
-    description: "1 projekt kuchni premium z AI",
+    description:
+      "1 projekt kuchni premium z AI",
     priceId:
-      process.env.NEXT_PUBLIC_STRIPE_START_PRICE_ID || "",
+      process.env
+        .NEXT_PUBLIC_STRIPE_START_PRICE_ID || "",
   },
   {
     name: "PRO",
     oldPrice: "59,99 zł",
     price: "29,99 zł",
     credits: 2,
-    description: "2 projekty + więcej możliwości",
+    description:
+      "2 projekty + więcej możliwości",
     priceId:
-      process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "",
+      process.env
+        .NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "",
   },
   {
     name: "PREMIUM",
     oldPrice: "99,99 zł",
     price: "49,99 zł",
     credits: 3,
-    description: "3 projekty premium + pełna swoboda",
+    description:
+      "3 projekty premium + pełna swoboda",
     priceId:
-      process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || "",
+      process.env
+        .NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || "",
   },
 ];
 
@@ -40,269 +59,368 @@ export default function PricingPage() {
   const [loadingPlan, setLoadingPlan] =
     useState<string | null>(null);
 
+  const resumedCheckout =
+    useRef(false);
+
+  function savePendingCheckout(
+    priceId: string,
+    planName: string
+  ) {
+    const pendingCheckout: PendingCheckout = {
+      priceId,
+      planName,
+    };
+
+    localStorage.setItem(
+      PENDING_CHECKOUT_KEY,
+      JSON.stringify(pendingCheckout)
+    );
+  }
+
+  const createStripeCheckout =
+    useCallback(
+      async (
+        priceId: string,
+        planName: string,
+        accessToken: string
+      ) => {
+        try {
+          setLoadingPlan(planName);
+
+          const res = await fetch(
+            "/api/checkout",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${accessToken}`,
+              },
+
+              body: JSON.stringify({
+                priceId,
+                planName,
+              }),
+            }
+          );
+
+          let data: {
+            url?: string;
+            error?: string;
+          };
+
+          try {
+            data = await res.json();
+          } catch {
+            alert(
+              "Serwer zwrócił nieprawidłową odpowiedź. Spróbuj ponownie."
+            );
+
+            return;
+          }
+
+          if (res.status === 401) {
+            savePendingCheckout(
+              priceId,
+              planName
+            );
+
+            await supabase.auth.signOut();
+
+            alert(
+              "Twoja sesja wygasła. Zaloguj się ponownie."
+            );
+
+            router.replace(
+              "/login?redirect=/pricing"
+            );
+
+            return;
+          }
+
+          if (!res.ok) {
+            alert(
+              data.error ||
+                "Nie udało się rozpocząć płatności."
+            );
+
+            return;
+          }
+
+          if (!data.url) {
+            alert(
+              "Stripe nie zwrócił adresu płatności."
+            );
+
+            return;
+          }
+
+          localStorage.removeItem(
+            PENDING_CHECKOUT_KEY
+          );
+
+          window.location.href =
+            data.url;
+        } catch (err) {
+          console.error(
+            "CHECKOUT ERROR:",
+            err
+          );
+
+          alert(
+            "Wystąpił błąd podczas uruchamiania płatności."
+          );
+        } finally {
+          setLoadingPlan(null);
+        }
+      },
+      [router]
+    );
+
   async function checkout(
     priceId: string,
     planName: string
   ) {
     try {
       if (!priceId) {
-        alert("Brak Stripe Price ID");
+        alert(
+          "Brak Stripe Price ID. Sprawdź zmienne środowiskowe."
+        );
+
         return;
       }
 
       setLoadingPlan(planName);
 
-      // Pobieramy aktualną sesję Supabase
       const {
         data: { session },
         error: sessionError,
-      } = await supabase.auth.getSession();
+      } =
+        await supabase.auth.getSession();
 
-      // Brak sesji = brak możliwości zakupu
       if (
         sessionError ||
-        !session ||
-        !session.access_token ||
+        !session?.access_token ||
         !session.user
       ) {
-        alert(
-          "Aby kupić projekty, musisz najpierw utworzyć konto lub się zalogować."
-        );
-
-        router.push("/login?redirect=/pricing");
-        return;
-      }
-
-      // Wysyłamy do serwera token logowania.
-      // Nie wysyłamy userId ani emaila.
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-
-        body: JSON.stringify({
+        savePendingCheckout(
           priceId,
-          planName,
-        }),
-      });
-
-      let data: {
-        url?: string;
-        error?: string;
-      };
-
-      try {
-        data = await res.json();
-      } catch {
-        alert(
-          "Serwer zwrócił nieprawidłową odpowiedź. Spróbuj ponownie."
+          planName
         );
+
+        router.push(
+          "/login?redirect=/pricing"
+        );
+
         return;
       }
 
-      if (res.status === 401) {
-        await supabase.auth.signOut();
-
-        alert(
-          "Twoja sesja wygasła. Zaloguj się ponownie."
-        );
-
-        router.push("/login?redirect=/pricing");
-        return;
-      }
-
-      if (!res.ok) {
-        alert(
-          data.error ||
-            "Nie udało się rozpocząć płatności."
-        );
-        return;
-      }
-
-      if (!data.url) {
-        alert(
-          "Stripe nie zwrócił adresu płatności."
-        );
-        return;
-      }
-
-      window.location.href = data.url;
+      await createStripeCheckout(
+        priceId,
+        planName,
+        session.access_token
+      );
     } catch (err) {
-      console.error("CHECKOUT ERROR:", err);
+      console.error(
+        "SESSION CHECK ERROR:",
+        err
+      );
 
       alert(
-        "Wystąpił błąd podczas uruchamiania płatności."
+        "Nie udało się sprawdzić konta użytkownika."
       );
     } finally {
-      setLoadingPlan(null);
+      setLoadingPlan((currentPlan) =>
+        currentPlan === planName
+          ? null
+          : currentPlan
+      );
     }
   }
 
+  useEffect(() => {
+    async function resumePendingCheckout() {
+      if (resumedCheckout.current) {
+        return;
+      }
+
+      const savedCheckout =
+        localStorage.getItem(
+          PENDING_CHECKOUT_KEY
+        );
+
+      if (!savedCheckout) {
+        return;
+      }
+
+      let pendingCheckout:
+        | PendingCheckout
+        | undefined;
+
+      try {
+        pendingCheckout =
+          JSON.parse(savedCheckout);
+      } catch {
+        localStorage.removeItem(
+          PENDING_CHECKOUT_KEY
+        );
+
+        return;
+      }
+
+      if (
+        !pendingCheckout?.priceId ||
+        !pendingCheckout?.planName
+      ) {
+        localStorage.removeItem(
+          PENDING_CHECKOUT_KEY
+        );
+
+        return;
+      }
+
+      const {
+        data: { session },
+      } =
+        await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        return;
+      }
+
+      resumedCheckout.current = true;
+
+      await createStripeCheckout(
+        pendingCheckout.priceId,
+        pendingCheckout.planName,
+        session.access_token
+      );
+    }
+
+    resumePendingCheckout();
+  }, [createStripeCheckout]);
+
   return (
-    <main
-      className="
-        min-h-screen
-        bg-black
-        text-white
-        p-10
-      "
-    >
-      <div
-        className="
-          max-w-7xl
-          mx-auto
-        "
-      >
-        <div
-          className="
-            text-center
-            mb-20
-          "
-        >
-          <h1
-            className="
-              text-7xl
-              font-bold
-              mb-8
-              text-center
-            "
-          >
-            Pakiety DreamS AI
+    <main className="relative min-h-screen overflow-hidden bg-[#07090d] px-4 py-16 text-white sm:px-6 lg:px-8">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(216,170,76,0.14),transparent_28%),radial-gradient(circle_at_85%_85%,rgba(59,130,246,0.08),transparent_24%)]" />
+
+      <div className="relative z-10 mx-auto max-w-7xl">
+        <div className="mx-auto max-w-3xl text-center">
+          <div className="inline-flex items-center gap-3 rounded-full border border-[#d8aa4c]/25 bg-[#d8aa4c]/10 px-5 py-3 text-sm font-semibold text-[#f0c56e]">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#f0c56e] shadow-[0_0_16px_rgba(240,197,110,0.8)]" />
+            Pakiety Projektuj AI
+          </div>
+
+          <h1 className="mt-7 text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">
+            Wybierz pakiet dopasowany
+            <span className="block bg-gradient-to-r from-white via-[#f5ddb0] to-[#d8aa4c] bg-clip-text text-transparent">
+              do liczby projektów
+            </span>
           </h1>
 
-          <p
-            className="
-              text-2xl
-              text-gray-400
-            "
-          >
-            Wybierz liczbę projektów AI
-            dla swojej kuchni
+          <p className="mt-6 text-lg leading-8 text-gray-400">
+            Każdy pakiet daje dostęp do projektowania wnętrz z AI, historii
+            wersji, poprawek oraz pobierania wizualizacji.
           </p>
         </div>
 
-        <div
-          className="
-            grid
-            lg:grid-cols-3
-            gap-8
-          "
-        >
-          {plans.map((plan) => {
+        <div className="mt-14 grid gap-7 lg:grid-cols-3">
+          {plans.map((plan, index) => {
             const isLoading =
               loadingPlan === plan.name;
+
+            const isRecommended =
+              plan.name === "PRO";
 
             return (
               <div
                 key={plan.name}
-                className="
-                  bg-white/5
-                  border
-                  border-white/10
-                  rounded-[40px]
-                  p-10
-                  backdrop-blur-2xl
-                "
+                className={`relative rounded-[30px] border p-7 shadow-2xl backdrop-blur-xl transition duration-300 hover:-translate-y-1 ${
+                  isRecommended
+                    ? "border-[#d8aa4c]/50 bg-gradient-to-b from-[#d8aa4c]/10 to-[#0c1016]"
+                    : "border-white/10 bg-[#0c1016]/95"
+                }`}
               >
-                <div
-                  className="
-                    text-5xl
-                    font-bold
-                    mb-6
-                    text-center
-                  "
-                >
-                  {plan.name}
+                {isRecommended && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-[#d8aa4c] to-[#f4ca73] px-5 py-2 text-xs font-black uppercase tracking-[0.18em] text-black shadow-lg">
+                    Najczęściej wybierany
+                  </div>
+                )}
+
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">
+                      Pakiet
+                    </div>
+
+                    <h2 className="mt-2 text-3xl font-black">
+                      {plan.name}
+                    </h2>
+                  </div>
+
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d8aa4c]/10 text-xl text-[#f0c56e]">
+                    {index === 0 ? "✦" : index === 1 ? "◆" : "★"}
+                  </div>
                 </div>
 
-                <div
-                  className="
-                    text-center
-                    mb-6
-                  "
-                >
-                  <div
-                    className="
-                      text-2xl
-                      text-gray-500
-                      line-through
-                      mb-2
-                    "
-                  >
+                <div className="mt-8">
+                  <div className="text-lg text-gray-600 line-through">
                     {plan.oldPrice}
                   </div>
 
-                  <div
-                    className="
-                      text-6xl
-                      font-bold
-                      text-green-400
-                    "
-                  >
-                    {plan.price}
+                  <div className="mt-1 flex items-end gap-2">
+                    <span className="text-5xl font-black text-white">
+                      {plan.price}
+                    </span>
+
+                    <span className="pb-1 text-sm text-gray-500">
+                      jednorazowo
+                    </span>
                   </div>
 
-                  <div
-                    className="
-                      mt-3
-                      inline-block
-                      bg-red-600
-                      px-4
-                      py-2
-                      rounded-full
-                      text-lg
-                      font-bold
-                    "
-                  >
-                    🔥 RABAT 50%
+                  <div className="mt-4 inline-flex items-center rounded-full border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300">
+                    Promocja -50%
                   </div>
                 </div>
 
-                <div
-                  className="
-                    mt-8
-                    mb-8
-                    text-center
-                  "
-                >
-                  <div
-                    className="
-                      inline-block
-                      bg-red-600
-                      text-white
-                      px-8
-                      py-4
-                      rounded-full
-                      font-bold
-                      text-xl
-                    "
-                  >
-                    🔥 PROMOCJA -50% TYLKO TERAZ 🔥
+                <div className="mt-7 rounded-2xl border border-white/10 bg-black/20 p-5">
+                  <div className="text-sm text-gray-500">
+                    Liczba projektów
+                  </div>
+
+                  <div className="mt-1 text-3xl font-black text-[#f0c56e]">
+                    {plan.credits}
                   </div>
                 </div>
 
-                <div
-                  className="
-                    text-xl
-                    text-gray-400
-                    mb-10
-                    text-center
-                  "
-                >
+                <p className="mt-6 min-h-[56px] leading-7 text-gray-400">
                   {plan.description}
-                </div>
+                </p>
 
-                <div
-                  className="
-                    text-2xl
-                    mb-10
-                    text-center
-                  "
-                >
-                  {plan.credits} projekt(y)
+                <div className="mt-7 space-y-4">
+                  {[
+                    "Fotorealistyczna wizualizacja AI",
+                    "Możliwość wprowadzania poprawek",
+                    "Historia wersji projektu",
+                    "Pobieranie wizualizacji",
+                    "Szacunkowa wycena",
+                  ].map((feature) => (
+                    <div
+                      key={feature}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#d8aa4c]/10 text-sm text-[#f0c56e]">
+                        ✓
+                      </div>
+
+                      <span className="text-sm text-gray-300">
+                        {feature}
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
                 <button
@@ -314,27 +432,116 @@ export default function PricingPage() {
                       plan.name
                     )
                   }
-                  className="
-                    w-full
-                    bg-green-600
-                    hover:bg-green-500
-                    disabled:bg-gray-600
-                    disabled:cursor-not-allowed
-                    transition
-                    p-5
-                    rounded-3xl
-                    text-2xl
-                    font-bold
-                  "
+                  className={`mt-8 w-full rounded-2xl px-6 py-4 text-lg font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    isRecommended
+                      ? "bg-gradient-to-r from-[#d8aa4c] to-[#f4ca73] text-black hover:brightness-110"
+                      : "border border-white/15 bg-white/[0.06] text-white hover:bg-white/[0.1]"
+                  }`}
                 >
                   {isLoading
                     ? "Sprawdzanie konta..."
-                    : "Kup teraz"}
+                    : "Kup pakiet"}
                 </button>
               </div>
             );
           })}
         </div>
+
+        <section className="mt-20 rounded-[32px] border border-white/10 bg-[#0c1016] p-6 sm:p-8">
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:items-center">
+            <div>
+              <div className="text-sm font-semibold uppercase tracking-[0.2em] text-[#d8aa4c]">
+                Bezpieczny zakup
+              </div>
+
+              <h2 className="mt-4 text-3xl font-black">
+                Płatność dopiero po zalogowaniu
+              </h2>
+
+              <p className="mt-4 max-w-2xl leading-7 text-gray-400">
+                Po wybraniu pakietu sprawdzamy Twoje konto. Jeżeli nie jesteś
+                zalogowany, zapisujemy wybrany pakiet i kierujemy Cię do
+                logowania. Po zalogowaniu płatność uruchomi się automatycznie.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[
+                {
+                  title: "1",
+                  text: "Wybierasz pakiet",
+                },
+                {
+                  title: "2",
+                  text: "Logujesz się",
+                },
+                {
+                  title: "3",
+                  text: "Przechodzisz do płatności",
+                },
+              ].map((step) => (
+                <div
+                  key={step.title}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center"
+                >
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#d8aa4c]/10 font-black text-[#f0c56e]">
+                    {step.title}
+                  </div>
+
+                  <div className="mt-4 text-sm font-semibold text-gray-300">
+                    {step.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-16">
+          <div className="mx-auto max-w-3xl text-center">
+            <div className="text-sm font-semibold uppercase tracking-[0.2em] text-[#d8aa4c]">
+              Najczęstsze pytania
+            </div>
+
+            <h2 className="mt-4 text-3xl font-black sm:text-4xl">
+              Wszystko, co warto wiedzieć przed zakupem
+            </h2>
+          </div>
+
+          <div className="mx-auto mt-10 grid max-w-5xl gap-5 md:grid-cols-2">
+            {[
+              {
+                q: "Czy płatność jest jednorazowa?",
+                a: "Tak. Każdy pakiet to jednorazowy zakup określonej liczby projektów.",
+              },
+              {
+                q: "Czy muszę mieć konto?",
+                a: "Tak. Konto jest potrzebne do zapisania kredytów i historii projektów.",
+              },
+              {
+                q: "Czy mogę poprawiać projekt?",
+                a: "Tak. Po wygenerowaniu wizualizacji możesz opisać, co należy zmienić.",
+              },
+              {
+                q: "Czy mogę pobrać wizualizację?",
+                a: "Tak. Gotowe obrazy możesz powiększyć i pobrać na komputer.",
+              },
+            ].map((item) => (
+              <div
+                key={item.q}
+                className="rounded-2xl border border-white/10 bg-[#0c1016] p-6"
+              >
+                <h3 className="font-bold text-white">
+                  {item.q}
+                </h3>
+
+                <p className="mt-3 leading-7 text-gray-400">
+                  {item.a}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </main>
   );

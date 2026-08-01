@@ -58,30 +58,17 @@ export default function RoomScannerPage() {
 
       if (!res.ok) {
 
+        console.error(data);
+
         alert(
           data.error ||
-          "Błąd AI"
+          "Błąd AI Skanera pomieszczeń"
         );
 
         return;
       }
 
-  
-  await res.json();
-
-if (!res.ok) {
-
-  console.error(data);
-
-  alert(
-    data.error ||
-    "Błąd AI Room Scanner"
-  );
-
-  return;
-}
-
-setResult(data);
+      setResult(data);
 
       setHistory(
         data.history || []
@@ -94,7 +81,7 @@ setResult(data);
       console.error(err);
 
       alert(
-        "Błąd AI Room Scanner"
+        "Błąd AI Skaner pomieszczeń"
       );
 
     } finally {
@@ -108,9 +95,11 @@ setResult(data);
     <main
       className="
         min-h-screen
-        bg-black
+        bg-[#07090d]
         text-white
-        p-6
+        p-4
+        sm:p-6
+        lg:p-8
       "
     >
 
@@ -123,30 +112,35 @@ setResult(data);
 
         <div
           className="
-            mb-14
+            mb-12
             text-center
           "
         >
 
           <h1
             className="
-              text-6xl
-              font-bold
-              mb-6
+              text-4xl
+              sm:text-5xl
+              lg:text-6xl
+              font-black
+              mb-5
+              tracking-tight
             "
           >
-            AI Room Scanner
+            AI Skaner pomieszczeń
           </h1>
 
           <p
             className="
               text-gray-400
-              text-xl
+              text-lg
+              sm:text-xl
               max-w-3xl
               mx-auto
+              leading-8
             "
           >
-            DreamS AI analizuje pomieszczenie,
+            Projektuj AI analizuje pomieszczenie,
             projektuje luksusową kuchnię
             i pozwala rozmawiać z AI
             projektantem wnętrz.
@@ -156,12 +150,14 @@ setResult(data);
 
         <div
           className="
-            bg-white/5
+            bg-[#0c1016]
             border
             border-white/10
-            rounded-3xl
-            p-8
+            rounded-[28px]
+            p-5
+            sm:p-8
             mb-10
+            shadow-2xl
           "
         >
 
@@ -174,9 +170,20 @@ setResult(data);
               w-full
               p-4
               rounded-2xl
-              bg-white/10
+              bg-[#161b22]
               border
               border-white/10
+              text-gray-300
+              file:mr-4
+              file:rounded-xl
+              file:border-0
+              file:bg-gradient-to-r
+              file:from-[#d8aa4c]
+              file:to-[#f4ca73]
+              file:px-5
+              file:py-3
+              file:font-bold
+              file:text-black
             "
 
             onChange={async (e) => {
@@ -245,9 +252,10 @@ setResult(data);
                     src={img}
                     alt=""
                     className="
-                      rounded-3xl
+                      rounded-2xl
                       border
                       border-white/10
+                      shadow-xl
                     "
                   />
                 )
@@ -265,21 +273,25 @@ setResult(data);
             className="
               mt-10
               w-full
-              bg-green-600
-              hover:bg-green-500
+              bg-gradient-to-r
+              from-[#d8aa4c]
+              to-[#f4ca73]
+              hover:brightness-110
               disabled:opacity-50
+              disabled:cursor-not-allowed
               transition
-              rounded-3xl
-              p-6
-              text-2xl
-              font-bold
+              rounded-2xl
+              p-5
+              text-xl
+              font-black
+              text-black
             "
           >
 
             {
               loading
                 ? "AI analizuje pomieszczenie..."
-                : "Uruchom AI Room Scanner"
+                : "Uruchom AI Skaner pomieszczeń"
             }
 
           </button>
@@ -296,18 +308,21 @@ setResult(data);
 
             <div
               className="
-                bg-white/5
+                bg-[#0c1016]
                 border
                 border-white/10
-                rounded-3xl
-                p-8
+                rounded-[28px]
+                p-5
+                sm:p-8
+                shadow-2xl
               "
             >
 
               <h2
                 className="
-                  text-3xl
-                  font-bold
+                  text-2xl
+                  sm:text-3xl
+                  font-black
                   mb-6
                 "
               >
@@ -345,16 +360,18 @@ setResult(data);
                     mb-6
                   "
                 >
-                  Wizualizacja Kuchni
+                  Wizualizacja wnętrza
                 </h2>
 
                 <img
                   src={`data:image/png;base64,${result.image}`}
                   alt=""
                   className="
-                    rounded-3xl
+                    rounded-2xl
                     shadow-2xl
                     w-full
+                    border
+                    border-white/10
                   "
                 />
 
@@ -363,11 +380,13 @@ setResult(data);
 
             <div
               className="
-                bg-white/5
+                bg-[#0c1016]
                 border
                 border-white/10
-                rounded-3xl
-                p-8
+                rounded-[28px]
+                p-5
+                sm:p-8
+                shadow-2xl
               "
             >
 
@@ -378,7 +397,7 @@ setResult(data);
                   mb-8
                 "
               >
-                Rozmowa z AI Projektantem
+                Rozmowa z projektantem AI
               </h2>
 
               <div
@@ -414,8 +433,8 @@ setResult(data);
                           py-4
                           ${
                             msg.role === "user"
-                              ? "bg-green-600"
-                              : "bg-white/10"
+                              ? "bg-gradient-to-r from-[#d8aa4c] to-[#f4ca73] text-black"
+                              : "bg-white/[0.06] border border-white/10"
                           }
                         `}
                       >
@@ -433,7 +452,9 @@ setResult(data);
               <div
                 className="
                   flex
+                  flex-col
                   gap-4
+                  lg:flex-row
                 "
               >
 
@@ -455,13 +476,14 @@ setResult(data);
 
                   className="
                     flex-1
-                    bg-white/10
+                    bg-[#161b22]
                     border
                     border-white/10
-                    rounded-3xl
+                    rounded-2xl
                     px-6
                     py-5
                     outline-none
+                    focus:border-[#d8aa4c]/60
                   "
                 />
 
@@ -472,13 +494,18 @@ setResult(data);
                   disabled={loading}
 
                   className="
-                    bg-green-600
-                    hover:bg-green-500
+                    bg-gradient-to-r
+                    from-[#d8aa4c]
+                    to-[#f4ca73]
+                    hover:brightness-110
                     disabled:opacity-50
+                    disabled:cursor-not-allowed
                     transition
-                    rounded-3xl
+                    rounded-2xl
                     px-10
-                    font-bold
+                    py-5
+                    font-black
+                    text-black
                   "
                 >
 

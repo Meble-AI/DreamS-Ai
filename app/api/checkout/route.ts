@@ -1,75 +1,233 @@
 export const runtime = "nodejs";
 
 import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
+import {
+  createClient,
+} from "@supabase/supabase-js";
 
-const stripe = new Stripe(
-  process.env.STRIPE_SECRET_KEY!
-);
+const stripeSecretKey =
+  process.env.STRIPE_SECRET_KEY;
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_KEY!
-);
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+const supabaseServerKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_KEY;
+
+if (!stripeSecretKey) {
+  throw new Error(
+    "Brak STRIPE_SECRET_KEY w zmiennych środowiskowych."
+  );
+}
+
+if (
+  !supabaseUrl ||
+  !supabaseServerKey
+) {
+  throw new Error(
+    "Brak danych Supabase po stronie serwera."
+  );
+}
+
+const stripe =
+  new Stripe(
+    stripeSecretKey
+  );
+
+const supabase =
+  createClient(
+    supabaseUrl,
+    supabaseServerKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  );
+
+type CheckoutBody = {
+  priceId?: string;
+  planName?: string;
+  projectId?: string | null;
+  versionNumber?: number | null;
+};
+
+function getAllowedPrices() {
+
+  const allowedPrices =
+    new Map<
+      string,
+      {
+        planName:
+          "START" |
+          "PRO" |
+          "PREMIUM";
+
+        credits:
+          number;
+      }
+    >();
+
+  const startPriceId =
+    process.env
+      .NEXT_PUBLIC_STRIPE_START_PRICE_ID;
+
+  const proPriceId =
+    process.env
+      .NEXT_PUBLIC_STRIPE_PRO_PRICE_ID;
+
+  const premiumPriceId =
+    process.env
+      .NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID;
+
+  if (startPriceId) {
+
+    allowedPrices.set(
+      startPriceId,
+      {
+        planName:
+          "START",
+
+        credits:
+          1,
+      }
+    );
+  }
+
+  if (proPriceId) {
+
+    allowedPrices.set(
+      proPriceId,
+      {
+        planName:
+          "PRO",
+
+        credits:
+          2,
+      }
+    );
+  }
+
+  if (premiumPriceId) {
+
+    allowedPrices.set(
+      premiumPriceId,
+      {
+        planName:
+          "PREMIUM",
+
+        credits:
+          3,
+      }
+    );
+  }
+
+  return allowedPrices;
+}
+
+function cleanMetadataValue(
+  value:
+    string |
+    number |
+    null |
+    undefined
+) {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+
+    return "";
+  }
+
+  return String(
+    value
+  ).slice(
+    0,
+    500
+  );
+}
 
 export async function POST(
   req: Request
 ) {
-  try {
-    console.log("START CHECKOUT");
 
-    // =========================
-    // SPRAWDZENIE TOKENU
-    // =========================
+  try {
+
+    console.log(
+      "START CHECKOUT"
+    );
 
     const authorization =
-      req.headers.get("authorization");
+      req.headers.get(
+        "authorization"
+      );
 
     if (
       !authorization ||
-      !authorization.startsWith("Bearer ")
+      !authorization.startsWith(
+        "Bearer "
+      )
     ) {
+
       return Response.json(
         {
+          success:
+            false,
+
           error:
             "Musisz być zalogowany, aby kupić kredyty.",
         },
         {
-          status: 401,
+          status:
+            401,
         }
       );
     }
 
     const accessToken =
-      authorization.replace(
-        "Bearer ",
-        ""
-      );
+      authorization
+        .replace(
+          "Bearer ",
+          ""
+        )
+        .trim();
 
     if (!accessToken) {
+
       return Response.json(
         {
+          success:
+            false,
+
           error:
             "Brak ważnej sesji użytkownika.",
         },
         {
-          status: 401,
+          status:
+            401,
         }
       );
     }
 
-    // Supabase sprawdza, czy token jest prawidłowy
     const {
       data: userData,
       error: userError,
-    } = await supabase.auth.getUser(
-      accessToken
-    );
+    } =
+      await supabase
+        .auth
+        .getUser(
+          accessToken
+        );
 
     if (
       userError ||
       !userData.user
     ) {
+
       console.error(
         "SUPABASE AUTH ERROR:",
         userError
@@ -77,11 +235,15 @@ export async function POST(
 
       return Response.json(
         {
+          success:
+            false,
+
           error:
             "Sesja wygasła. Zaloguj się ponownie.",
         },
         {
-          status: 401,
+          status:
+            401,
         }
       );
     }
@@ -90,192 +252,266 @@ export async function POST(
       userData.user;
 
     if (!user.email) {
+
       return Response.json(
         {
+          success:
+            false,
+
           error:
             "Na koncie nie ma adresu e-mail.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
 
-    // =========================
-    // ODCZYT DANYCH PAKIETU
-    // =========================
-
-    const body =
+    const body: CheckoutBody =
       await req.json();
 
-    const {
-      priceId,
-      planName,
-    } = body;
+    const priceId =
+      body.priceId?.trim();
 
-    console.log(
-      "VERIFIED USER ID:",
-      user.id
-    );
+    const requestedPlanName =
+      body.planName?.trim();
 
-    console.log(
-      "VERIFIED EMAIL:",
-      user.email
-    );
+    const projectId =
+      body.projectId?.trim() ||
+      null;
 
-    console.log(
-      "PRICE ID:",
-      priceId
-    );
-
-    console.log(
-      "PLAN:",
-      planName
-    );
+    const versionNumber =
+      Number.isFinite(
+        Number(
+          body.versionNumber
+        )
+      )
+        ? Number(
+            body.versionNumber
+          )
+        : null;
 
     if (!priceId) {
+
       return Response.json(
         {
-          error: "Brak priceId",
+          success:
+            false,
+
+          error:
+            "Brak identyfikatora pakietu Stripe.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
 
-    // =========================
-    // DOZWOLONE PAKIETY
-    // =========================
-
-    const startPriceId =
-      process.env
-        .NEXT_PUBLIC_STRIPE_START_PRICE_ID;
-
-    const proPriceId =
-      process.env
-        .NEXT_PUBLIC_STRIPE_PRO_PRICE_ID;
-
-    const premiumPriceId =
-      process.env
-        .NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID;
-
     const allowedPrices =
-      new Map<string, string>();
+      getAllowedPrices();
 
-    if (startPriceId) {
-      allowedPrices.set(
-        startPriceId,
-        "START"
+    const verifiedPlan =
+      allowedPrices.get(
+        priceId
       );
-    }
 
-    if (proPriceId) {
-      allowedPrices.set(
-        proPriceId,
-        "PRO"
-      );
-    }
+    if (!verifiedPlan) {
 
-    if (premiumPriceId) {
-      allowedPrices.set(
-        premiumPriceId,
-        "PREMIUM"
-      );
-    }
-
-    const verifiedPlanName =
-      allowedPrices.get(priceId);
-
-    if (!verifiedPlanName) {
       return Response.json(
         {
+          success:
+            false,
+
           error:
             "Nieprawidłowy pakiet Stripe.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
 
-    // =========================
-    // TWORZENIE SESJI STRIPE
-    // =========================
+    if (
+      requestedPlanName &&
+      requestedPlanName !==
+        verifiedPlan.planName
+    ) {
+
+      console.warn(
+        "PLAN NAME MISMATCH:",
+        {
+          requestedPlanName,
+          verifiedPlanName:
+            verifiedPlan.planName,
+        }
+      );
+    }
+
+    const requestUrl =
+      new URL(
+        req.url
+      );
+
+    const origin =
+      process.env.NEXT_PUBLIC_SITE_URL
+        ?.replace(
+          /\/$/,
+          ""
+        ) ||
+      requestUrl.origin;
+
+    const successUrl =
+      `${origin}/dashboard?payment=success&session_id={CHECKOUT_SESSION_ID}`;
+
+    const cancelUrl =
+      `${origin}/pricing?payment=cancelled`;
+
+    const metadata = {
+
+      userId:
+        cleanMetadataValue(
+          user.id
+        ),
+
+      userEmail:
+        cleanMetadataValue(
+          user.email
+        ),
+
+      priceId:
+        cleanMetadataValue(
+          priceId
+        ),
+
+      planName:
+        cleanMetadataValue(
+          verifiedPlan.planName
+        ),
+
+      credits:
+        cleanMetadataValue(
+          verifiedPlan.credits
+        ),
+
+      projectId:
+        cleanMetadataValue(
+          projectId
+        ),
+
+      versionNumber:
+        cleanMetadataValue(
+          versionNumber
+        ),
+    };
 
     const session =
-      await stripe.checkout.sessions.create({
-        mode: "payment",
+      await stripe
+        .checkout
+        .sessions
+        .create({
 
-        payment_method_types: [
-          "card",
-          "blik",
-        ],
+          mode:
+            "payment",
 
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
+          payment_method_types: [
+            "card",
+            "blik",
+          ],
+
+          line_items: [
+            {
+              price:
+                priceId,
+
+              quantity:
+                1,
+            },
+          ],
+
+          customer_email:
+            user.email,
+
+          client_reference_id:
+            user.id,
+
+          metadata,
+
+          payment_intent_data: {
+            metadata,
           },
-        ],
 
-        customer_email:
-          user.email,
+          success_url:
+            successUrl,
 
-        // Zweryfikowane ID użytkownika
-        // pobrane bezpośrednio z Supabase
-        client_reference_id:
-          user.id,
+          cancel_url:
+            cancelUrl,
+        });
 
-        metadata: {
-          userId: user.id,
-          priceId,
-          planName:
-            verifiedPlanName,
+    if (!session.url) {
+
+      return Response.json(
+        {
+          success:
+            false,
+
+          error:
+            "Stripe nie zwrócił adresu płatności.",
         },
-
-        payment_intent_data: {
-          metadata: {
-            userId: user.id,
-            priceId,
-            planName:
-              verifiedPlanName,
-          },
-        },
-
-        success_url:
-          "https://dreamsai.pl/success?session_id={CHECKOUT_SESSION_ID}",
-
-        cancel_url:
-          "https://dreamsai.pl/pricing",
-      });
-
-    console.log(
-      "SESSION CREATED:",
-      session.id
-    );
+        {
+          status:
+            500,
+        }
+      );
+    }
 
     return Response.json({
-      url: session.url,
+      success:
+        true,
+
+      url:
+        session.url,
+
+      sessionId:
+        session.id,
+
+      planName:
+        verifiedPlan.planName,
+
+      credits:
+        verifiedPlan.credits,
     });
-  } catch (err: unknown) {
+
+  } catch (
+    err: unknown
+  ) {
+
     console.error(
       "========== STRIPE CHECKOUT ERROR =========="
     );
 
-    console.error(err);
+    console.error(
+      err
+    );
 
     const message =
       err instanceof Error
         ? err.message
-        : "Stripe error";
+        : "Błąd Stripe";
 
     return Response.json(
       {
-        error: message,
+        success:
+          false,
+
+        error:
+          message,
       },
       {
-        status: 500,
+        status:
+          500,
       }
     );
   }

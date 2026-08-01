@@ -1,49 +1,333 @@
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 import OpenAI from "openai";
-import { addLogoToImage } from "@/lib/addLogo";
-import { kitchenKnowledge } from "@/lib/kitchenKnowledge";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import {
+  addLogoToImage,
+} from "@/lib/addLogo";
 
-function calculateFurnitureEstimate(
-  text: string
-) {
+import {
+  kitchenKnowledge,
+} from "@/lib/kitchenKnowledge";
 
-  let netto = 25000;
+import {
+  analyzeRoom,
+} from "@/lib/ai/analyzeRoom";
 
-  const lower =
-    text.toLowerCase();
+import {
+  designKitchen,
+} from "@/lib/ai/designKitchen";
 
-  if (lower.includes("premium")) {
-    netto += 6000;
+import type {
+  KitchenDesign,
+} from "@/lib/ai/designKitchen";
+
+import {
+  editKitchen,
+} from "@/lib/ai/editKitchen";
+
+import {
+  validateKitchen,
+} from "@/lib/ai/validateKitchen";
+
+import {
+  createProjectMemory,
+  sanitizeProjectMemory,
+} from "@/lib/ai/projectMemory";
+
+import type {
+  ProjectMemory,
+} from "@/lib/ai/projectMemory";
+
+import {
+  renderKitchen,
+} from "@/lib/ai/renderKitchen";
+
+import {
+  furniturePlanner,
+} from "@/lib/ai/furniturePlanner";
+
+const openai =
+  new OpenAI({
+    apiKey:
+      process.env.OPENAI_API_KEY,
+  });
+
+type HistoryItem = {
+  user?: string;
+  ai?: string;
+};
+
+type ChatRequestBody = {
+  message?: string;
+  history?: HistoryItem[];
+  images?: string[];
+  previousImages?: string[];
+  projectMemory?: unknown;
+  isCorrection?: boolean;
+  correctionRequest?: string;
+};
+
+function compactText(
+  value: string,
+  limit = 8000
+): string {
+
+  if (!value) {
+    return "";
   }
 
-  if (lower.includes("blum")) {
+  return value.length > limit
+    ? value.slice(-limit)
+    : value;
+}
+
+function normalizeMessage(
+  value: unknown
+): string {
+
+  return String(
+    value || ""
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildConversation(
+  history: HistoryItem[],
+  message: string
+): string {
+
+  const limitedHistory =
+    Array.isArray(history)
+      ? history.slice(-5)
+      : [];
+
+  return [
+    ...limitedHistory.map(
+      (item) => `
+
+KLIENT:
+${compactText(
+  String(item.user || ""),
+  2500
+)}
+
+PROJEKTUJ AI:
+${compactText(
+  String(item.ai || ""),
+  3500
+)}
+`
+    ),
+
+    `
+KLIENT:
+${message}
+`,
+  ].join("\n");
+}
+
+function detectCorrection(
+  message: string,
+  explicitCorrection: boolean,
+  previousImage: string | null
+): boolean {
+
+  if (!previousImage) {
+    return false;
+  }
+
+  if (explicitCorrection) {
+    return true;
+  }
+
+  const lower =
+    message.toLowerCase();
+
+  return [
+    "zmień",
+    "popraw",
+    "dodaj",
+    "usuń",
+    "powiększ",
+    "pomniejsz",
+    "przesuń",
+    "zamień",
+    "edytuj",
+    "zostaw wszystko",
+    "tylko",
+  ].some(
+    (phrase) =>
+      lower.includes(phrase)
+  );
+}
+
+function shouldGenerateProject(
+  message: string,
+  isCorrection: boolean,
+  images: string[]
+): boolean {
+
+  if (isCorrection) {
+    return true;
+  }
+
+  if (images.length > 0) {
+    return true;
+  }
+
+  const lower =
+    message.toLowerCase();
+
+  return [
+    "projekt",
+    "wizualiz",
+    "wygeneruj",
+    "zaprojektuj",
+    "stwórz kuchnię",
+    "stworz kuchnie",
+    "render",
+    "pokaż kuchnię",
+    "pokaz kuchnie",
+  ].some(
+    (phrase) =>
+      lower.includes(phrase)
+  );
+}
+
+function memoryToDesign(
+  memory: Partial<ProjectMemory>
+): KitchenDesign | null {
+
+  if (
+    !memory ||
+    !memory.modules ||
+    !memory.appliances ||
+    !memory.materials ||
+    !memory.ergonomics ||
+    !memory.island
+  ) {
+    return null;
+  }
+
+  return {
+    project_name:
+      memory.project_name ||
+      "Projekt kuchni",
+
+    summary:
+      memory.project_summary ||
+      "",
+
+    layout:
+      memory.layout ||
+      "do ustalenia",
+
+    layout_reason:
+      memory.layout_reason ||
+      "",
+
+    island:
+      memory.island,
+
+    modules:
+      memory.modules,
+
+    appliances:
+      memory.appliances,
+
+    materials:
+      memory.materials,
+
+    ergonomics:
+      memory.ergonomics,
+
+    technical_notes:
+      memory.technical_notes ||
+      [],
+
+    client_questions:
+      [],
+
+    render_description:
+      memory.render_description ||
+      "",
+  };
+}
+
+function calculateFurnitureEstimate(
+  design: KitchenDesign
+) {
+
+  let netto =
+    21000;
+
+  const text =
+    JSON.stringify(
+      design
+    ).toLowerCase();
+
+  const moduleQuantity =
+    (
+      design.modules || []
+    ).reduce(
+      (
+        total,
+        module
+      ) =>
+        total +
+        Number(
+          module.quantity || 1
+        ),
+      0
+    );
+
+  netto +=
+    moduleQuantity * 650;
+
+  if (
+    text.includes("premium")
+  ) {
     netto += 4500;
   }
 
-  if (lower.includes("cargo")) {
+  if (
+    text.includes("blum")
+  ) {
+    netto += 4500;
+  }
+
+  if (
+    text.includes("cargo")
+  ) {
     netto += 2500;
   }
 
-  if (lower.includes("led")) {
+  if (
+    text.includes("led")
+  ) {
     netto += 1200;
   }
 
-  if (lower.includes("spiek")) {
+  if (
+    text.includes("spiek")
+  ) {
     netto += 9000;
   }
 
-  if (lower.includes("wyspa")) {
+  if (
+    design.island?.included
+  ) {
     netto += 7000;
   }
 
-  if (lower.includes("akryl")) {
+  if (
+    text.includes("akryl")
+  ) {
     netto += 3500;
   }
-
-  netto += 4500;
 
   const brutto =
     Math.round(
@@ -51,9 +335,271 @@ function calculateFurnitureEstimate(
     );
 
   return {
-    netto,
+    netto:
+      Math.round(netto),
+
     brutto,
   };
+}
+
+function createLegacyMemoryAliases(
+  memory: ProjectMemory
+) {
+
+  return {
+    ...memory,
+
+    styl:
+      memory.materials?.style ||
+      "",
+
+    kolor_frontow:
+      memory.materials?.fronts ||
+      "",
+
+    blat:
+      memory.materials?.countertop ||
+      "",
+
+    uklad:
+      memory.layout ||
+      "",
+
+    wyspa:
+      Boolean(
+        memory.island?.included
+      ),
+
+    led:
+      Boolean(
+        memory.materials?.lighting
+          ?.length
+      ),
+
+    witryny:
+      memory.modules?.some(
+        (module) =>
+          module.name
+            ?.toLowerCase()
+            .includes("witryn")
+      ) || false,
+
+    room_scan:
+      memory.room,
+  };
+}
+
+function createProjectReply(
+  design: KitchenDesign,
+  versionNumber: number,
+  estimate: {
+    netto: number;
+    brutto: number;
+  },
+  isCorrection: boolean,
+  correctionRequest: string
+): string {
+
+  const correctionIntro =
+    isCorrection
+      ? `
+Wprowadzono poprawkę:
+${correctionRequest}
+
+Zachowano wszystkie elementy, których poprawka nie dotyczy.
+`
+      : `
+Przygotowałem projekt kuchni na podstawie podanych informacji i analizy pomieszczenia.
+`;
+
+  const questions =
+    design.client_questions
+      ?.length
+      ? `
+
+DO POTWIERDZENIA:
+${design.client_questions
+  .map(
+    (question) =>
+      `- ${question}`
+  )
+  .join("\n")}
+`
+      : "";
+
+  return `
+${correctionIntro}
+
+WERSJA PROJEKTU:
+v${versionNumber}
+
+UKŁAD:
+${design.layout}
+
+STYL:
+${design.materials.style}
+
+FRONTY:
+${design.materials.fronts}
+
+BLAT:
+${design.materials.countertop}
+
+WYSPA:
+${design.island.included ? "TAK" : "NIE"}
+
+OPIS:
+${design.summary}
+
+SZACUNKOWA WYCENA:
+NETTO: ${estimate.netto} zł
+BRUTTO: ${estimate.brutto} zł
+
+AGD wyceniane osobno.
+Wycena jest orientacyjna i wymaga pomiaru oraz dokładnej specyfikacji.
+${questions}
+
+Możesz teraz opisać kolejną poprawkę.
+`.trim();
+}
+
+async function createConsultationReply({
+  conversation,
+  roomAnalysis,
+  roomData,
+  memory,
+}: {
+  conversation: string;
+  roomAnalysis: string;
+  roomData: unknown;
+  memory: unknown;
+}) {
+
+  const response =
+    await openai.chat.completions.create({
+
+      model:
+        "gpt-4.1",
+
+      messages: [
+        {
+          role:
+            "system",
+
+          content: `
+Jesteś projektantem kuchni Projektuj AI.
+
+Rozmawiaj z klientem konkretnie i po polsku.
+Zadawaj najwyżej 1–3 najważniejsze pytania naraz.
+Nie generuj jeszcze wizualizacji, dopóki klient nie poprosi o projekt lub nie prześle zdjęcia.
+
+Korzystaj z bazy wiedzy:
+
+${kitchenKnowledge}
+`,
+        },
+
+        {
+          role:
+            "user",
+
+          content: `
+ANALIZA POMIESZCZENIA:
+${roomAnalysis || "Brak zdjęcia."}
+
+DANE POMIESZCZENIA:
+${JSON.stringify(
+  roomData,
+  null,
+  2
+)}
+
+PAMIĘĆ PROJEKTU:
+${JSON.stringify(
+  memory,
+  null,
+  2
+)}
+
+ROZMOWA:
+${conversation}
+`,
+        },
+      ],
+    });
+
+  return (
+    response
+      .choices?.[0]
+      ?.message?.content ||
+    "Opisz proszę pomieszczenie i oczekiwany styl kuchni."
+  );
+}
+
+async function generateFloorPlan(
+  design: KitchenDesign
+): Promise<string | null> {
+
+  try {
+
+    const prompt = `
+Profesjonalny rzut 2D kuchni z góry.
+
+PROJEKT:
+${JSON.stringify(
+  design,
+  null,
+  2
+)}
+
+ZASADY:
+- czytelny rzut architektoniczny
+- realistyczne proporcje
+- układ szafek zgodny z projektem
+- dokładnie jedna lodówka
+- dokładnie jeden zlew
+- dokładnie jedna płyta
+- dokładnie jeden piekarnik
+- dokładnie jedna zmywarka
+- bez dekoracji
+- jasne tło
+- estetyka profesjonalnego programu do projektowania
+`;
+
+    const result =
+      await openai.images.generate({
+        model:
+          "gpt-image-1",
+
+        prompt,
+
+        size:
+          "1536x1024",
+      });
+
+    const rawImage =
+      result.data?.[0]
+        ?.b64_json;
+
+    if (!rawImage) {
+      return null;
+    }
+
+    return await addLogoToImage(
+      rawImage
+    );
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      "FLOOR PLAN ERROR:",
+      error
+    );
+
+    return null;
+  }
 }
 
 export async function POST(
@@ -65,789 +611,445 @@ export async function POST(
     const body =
       await req.json();
 
-    const {
-      message,
-      history = [],
-      images = [],
-      previousImages = [],
-      projectMemory: incomingMemory = {},
-    } = body;
+    const message =
+      normalizeMessage(
+        body.message
+      );
 
-    const image =
-      images?.[0] || null;
+    if (!message) {
 
-    const previousImage =
-      previousImages?.[0] || null;
+      return Response.json(
+        {
+          success:
+            false,
 
-    // ====================================
-    // ROOM SCANNER
-    // ====================================
-
-    let roomAnalysis = "";
-
-    let roomData = {
-
-      walls: [],
-      windows: 0,
-      doors: 0,
-      layout: "",
-      estimated_size: "",
-      has_island_space: false,
-      kitchen_type: "",
-      ergonomic_notes: [],
-    };
-
-    if (image) {
-
-      try {
-
-        const vision =
-          await openai.chat.completions.create({
-
-            model:
-              "gpt-4.1",
-
-            response_format: {
-              type: "json_object",
-            },
-
-            messages: [
-
-              {
-                role: "system",
-
-                content: `
-
-Jesteś elitarnym AI Room Scanner dla producenta mebli premium.
-
-Przeanalizuj zdjęcie pomieszczenia i zwróć JSON.
-
-{
-  "room_analysis": "",
-  "layout": "",
-  "estimated_size": "",
-  "walls": [],
-  "windows": 0,
-  "doors": 0,
-  "has_island_space": true,
-  "kitchen_type": "",
-  "ergonomic_notes": []
-}
-
-BARDZO WAŻNE:
-- analizuj rzeczywisty układ
-- wykrywaj ściany
-- wykrywaj okna
-- wykrywaj drzwi
-- analizuj ergonomię
-- wykrywaj miejsce na wyspę
-- analizuj przejścia
-- projektuj realistycznie
-
-`,
-              },
-
-              {
-                role: "user",
-
-                content: [
-
-                  {
-                    type: "text",
-
-                    text: `
-Przeskanuj pomieszczenie pod projekt kuchni premium.
-`,
-                  },
-
-                  {
-                    type: "image_url",
-
-                    image_url: {
-                      url: image,
-                    },
-                  },
-                ],
-              },
-            ],
-          });
-
-        const parsed =
-          JSON.parse(
-
-            vision
-              .choices[0]
-              .message.content || "{}"
-          );
-
-        roomAnalysis =
-          parsed.room_analysis || "";
-
-        roomData = {
-
-          walls:
-            parsed.walls || [],
-
-          windows:
-            parsed.windows || 0,
-
-          doors:
-            parsed.doors || 0,
-
-          layout:
-            parsed.layout || "",
-
-          estimated_size:
-            parsed.estimated_size || "",
-
-          has_island_space:
-            parsed.has_island_space || false,
-
-          kitchen_type:
-            parsed.kitchen_type || "",
-
-          ergonomic_notes:
-            parsed.ergonomic_notes || [],
-        };
-
-      } catch (visionError) {
-
-        console.log(
-          "ROOM SCANNER ERROR:",
-          visionError
-        );
-      }
+          error:
+            "Wpisz wiadomość.",
+        },
+        {
+          status:
+            400,
+        }
+      );
     }
 
-    // ====================================
-    // HISTORY
-    // ====================================
-
-    const limitedHistory =
-      history.slice(-8);
-
-    const conversation = [
-
-      ...limitedHistory.map(
-        (item: any) => `
-KLIENT:
-${item.user}
-
-DREAMS AI:
-${item.ai}
-`
-      ),
-
-      `
-KLIENT:
-${message}
-`,
-    ].join("\n");
-
-    const lowerConversation =
-      conversation.toLowerCase();
-
-    // ====================================
-    // EDIT MODE
-    // ====================================
-
-    const isEditingProject =
-
-      lowerConversation.includes("zmień")
-
-      ||
-
-      lowerConversation.includes("popraw")
-
-      ||
-
-      lowerConversation.includes("dodaj")
-
-      ||
-
-      lowerConversation.includes("usuń")
-
-      ||
-
-      lowerConversation.includes("powiększ")
-
-      ||
-
-      lowerConversation.includes("pomniejsz")
-
-      ||
-
-      lowerConversation.includes("edytuj")
-
-      ||
-
-      lowerConversation.includes("zostaw resztę")
-
-      ||
-
-      lowerConversation.includes("tylko");
-
-    // ====================================
-    // MEMORY
-    // ====================================
-
-    const projectMemory = {
-
-      ...incomingMemory,
-
-      styl:
-
-        lowerConversation.includes("minimal")
-          ? "minimalistyczny"
-
-        : lowerConversation.includes("loft")
-          ? "loft"
-
-        : lowerConversation.includes("glamour")
-          ? "glamour"
-
-        : lowerConversation.includes("nowoczes")
-          ? "nowoczesny"
-
-        : incomingMemory?.styl ||
-
-          "premium",
-
-      kolor_frontow:
-
-        lowerConversation.includes("kaszmir")
-          ? "kaszmir"
-
-        : lowerConversation.includes("czarn")
-          ? "czarny"
-
-        : lowerConversation.includes("bia")
-          ? "biały"
-
-        : lowerConversation.includes("drewn")
-          ? "drewno"
-
-        : incomingMemory?.kolor_frontow ||
-
-          "premium neutral",
-
-      blat:
-
-        lowerConversation.includes("spiek")
-          ? "spiek"
-
-        : lowerConversation.includes("drew")
-          ? "drewniany"
-
-        : incomingMemory?.blat ||
-
-          "premium",
-
-      uklad:
-
-        roomData.layout ||
-
-        incomingMemory?.uklad ||
-
-        (
-
-          lowerConversation.includes("wyspa")
-            ? "L + wyspa"
-
-          : lowerConversation.includes("układ l")
-            ? "L"
-
-          : lowerConversation.includes("układ u")
-            ? "U"
-
-          : "premium"
-        ),
-
-      wyspa:
-
-        roomData.has_island_space ||
-
-        incomingMemory?.wyspa ||
-
-        lowerConversation.includes(
-          "wyspa"
-        ),
-
-      blum:
-
-        incomingMemory?.blum ||
-
-        lowerConversation.includes(
-          "blum"
-        ),
-
-      led:
-
-        incomingMemory?.led ||
-
-        lowerConversation.includes(
-          "led"
-        ),
-
-      witryny:
-
-        incomingMemory?.witryny ||
-
-        lowerConversation.includes(
-          "witry"
-        ),
-
-      previousImage,
-
-      room_scan:
-        roomData,
-    };
-
-    // ====================================
-    // GENERATE PROJECT
-    // ====================================
+    const history =
+      Array.isArray(
+        body.history
+      )
+        ? body.history
+        : [];
+
+    const images =
+      Array.isArray(
+        body.images
+      )
+        ? body.images.filter(
+            (
+              image
+            ): image is string =>
+              typeof image ===
+                "string" &&
+              image.startsWith(
+                "data:image/"
+              )
+          )
+        : [];
+
+    const previousImages =
+      Array.isArray(
+        body.previousImages
+      )
+        ? body.previousImages.filter(
+            (
+              image
+            ): image is string =>
+              typeof image ===
+                "string" &&
+              image.length > 0
+          )
+        : [];
+
+    const previousImage =
+      previousImages.at(-1) ||
+      null;
+
+    const incomingMemory =
+      sanitizeProjectMemory(
+        body.projectMemory
+      );
+
+    const correctionRequest =
+      normalizeMessage(
+        body.correctionRequest ||
+        message
+      );
+
+    const isCorrection =
+      detectCorrection(
+        message,
+        body.isCorrection === true,
+        previousImage
+      );
+
+    const conversation =
+      buildConversation(
+        history,
+        message
+      );
+
+    // 1. ANALIZA POMIESZCZENIA
+
+    const room =
+      images.length > 0
+        ? await analyzeRoom({
+            openai,
+            images,
+          })
+        : {
+            roomAnalysis:
+              incomingMemory
+                ?.room
+                ?.analysis ||
+              "",
+
+            roomData: {
+              walls:
+                incomingMemory
+                  ?.room
+                  ?.walls ||
+                [],
+
+              windows:
+                incomingMemory
+                  ?.room
+                  ?.windows ||
+                0,
+
+              doors:
+                incomingMemory
+                  ?.room
+                  ?.doors ||
+                0,
+
+              layout:
+                incomingMemory
+                  ?.room
+                  ?.layout ||
+                "",
+
+              estimated_size:
+                incomingMemory
+                  ?.room
+                  ?.estimated_size ||
+                "",
+
+              has_island_space:
+                incomingMemory
+                  ?.room
+                  ?.has_island_space ||
+                false,
+
+              kitchen_type:
+                incomingMemory
+                  ?.room
+                  ?.kitchen_type ||
+                "",
+
+              ergonomic_notes:
+                incomingMemory
+                  ?.room
+                  ?.ergonomic_notes ||
+                [],
+            },
+          };
 
     const generateProject =
+      shouldGenerateProject(
+        message,
+        isCorrection,
+        images
+      );
 
-      lowerConversation.includes(
-        "projekt"
-      )
-
-      ||
-
-      lowerConversation.includes(
-        "wizualizacja"
-      )
-
-      ||
-
-      lowerConversation.includes(
-        "popraw"
-      )
-
-      ||
-
-      isEditingProject;
-
-    // ====================================
-    // CONSULTATION
-    // ====================================
+    // 2. KONSULTACJA
 
     if (!generateProject) {
 
-      const consultation =
-        await openai.chat.completions.create({
-
-          model:
-            "gpt-4.1",
-
-          messages: [
-
-            {
-              role: "system",
-
-              content: `
-
-Jesteś elitarnym projektantem kuchni premium DreamS AI.
-
-${kitchenKnowledge}
-
-`,
-            },
-
-            {
-              role: "user",
-
-              content: `
-
-ROOM SCAN:
-${JSON.stringify(roomData, null, 2)}
-
-ROOM ANALYSIS:
-${roomAnalysis}
-
-PAMIĘĆ:
-${JSON.stringify(projectMemory, null, 2)}
-
-ROZMOWA:
-${conversation}
-
-`,
-            },
-          ],
+      const reply =
+        await createConsultationReply({
+          conversation,
+          roomAnalysis:
+            room.roomAnalysis,
+          roomData:
+            room.roomData,
+          memory:
+            incomingMemory,
         });
 
-        return Response.json({
+      return Response.json({
+        success:
+          true,
 
-          success: true,
+        reply,
 
-          reply:
-            consultation
-              .choices[0]
-              .message.content,
+        generatedImage:
+          null,
 
-          generatedImage:
-            null,
+        generatedImages:
+          [],
 
-          generatedImages:
-            [],
+        floorPlan:
+          null,
 
-          floorPlan:
-            null,
+        roomData:
+          room.roomData,
 
-          roomData,
+        memory:
+          incomingMemory,
+      });
+    }
+
+    // 3. PROJEKT LUB POPRAWKA
+
+    let design:
+      KitchenDesign;
+
+    const previousDesign =
+      memoryToDesign(
+        incomingMemory
+      );
+
+    if (
+      isCorrection &&
+      previousDesign
+    ) {
+
+      const edited =
+        await editKitchen({
+          openai,
+
+          previousDesign,
 
           memory:
-            projectMemory,
+            incomingMemory,
+
+          correctionRequest,
+        });
+
+      design =
+        edited.updatedDesign;
+
+    } else {
+
+      design =
+        await designKitchen({
+          openai,
+
+          room,
+
+          message,
+
+          conversation,
+
+          memory:
+            incomingMemory as Record<
+              string,
+              unknown
+            >,
+
+          isCorrection:
+            false,
+
+          correctionRequest:
+            "",
         });
     }
 
-    // ====================================
-    // PROJECT AI
-    // ====================================
+    // 4. WALIDACJA
 
-    const project =
-      await openai.chat.completions.create({
+    const validation =
+      await validateKitchen({
+        design,
 
-        model:
-          "gpt-4.1",
+        openai,
 
-        messages: [
-
-          {
-            role: "system",
-
-            content: `
-
-Jesteś elitarnym projektantem wnętrz premium i archviz artist.
-
-${kitchenKnowledge}
-
-TWÓRZ:
-- ultra realistic kitchens
-- cinematic interior lighting
-- luxury apartment atmosphere
-- architectural visualization quality
-- interior magazine quality
-- premium realism
-- realistic materials
-- realistic wood textures
-- realistic stone countertops
-- realistic glass reflections
-- realistic lighting
-- luxury premium kitchen
-
-`,
-          },
-
-          {
-            role: "user",
-
-            content: `
-
-ROOM SCAN:
-${JSON.stringify(roomData, null, 2)}
-
-ROOM ANALYSIS:
-${roomAnalysis}
-
-PAMIĘĆ:
-${JSON.stringify(projectMemory, null, 2)}
-
-TRYB EDYCJI:
-${isEditingProject ? "TAK" : "NIE"}
-
-ROZMOWA:
-${conversation}
-
-`,
-          },
-        ],
+        useAiReview:
+          true,
       });
 
-    const aiReply =
-      project.choices[0]
-        .message.content ||
+    const correctedDesign =
+      validation.correctedDesign;
 
-      "Brak odpowiedzi AI";
+    // 5. PLAN ROZMIESZCZENIA MEBLI
 
-    // ====================================
-    // GENERATE IMAGES
-    // ====================================
+    const furniturePlan =
+      furniturePlanner({
+        design:
+          correctedDesign,
 
-    let generatedImages:
-      string[] = [];
+        room,
+      });
 
-    let floorPlan:
-      string | null = null;
+    // 6. PAMIĘĆ PROJEKTU
 
-    try {
+    const memory =
+      createProjectMemory({
+        design:
+          correctedDesign,
 
-      const styles =
+        roomAnalysis:
+          room.roomAnalysis,
 
-        isEditingProject
+        roomData:
+          room.roomData,
 
-          ? [
-              "ultra realistic luxury edit"
-            ]
+        previousMemory:
+          incomingMemory,
 
-          : [
+        correctionRequest,
 
-              "luxury interior magazine",
+        isCorrection,
+      });
 
-              "ultra realistic premium kitchen",
+    const responseMemory =
+      createLegacyMemoryAliases(
+        memory
+      );
 
-              "cinematic architectural visualization",
-            ];
+    // 6. RENDER
 
-      for (
-        const style
-        of styles
-      ) {
+    const render =
+      await renderKitchen({
+        openai,
 
-        let imagePrompt = `
+        design:
+          correctedDesign,
 
-ULTRA REALISTIC PREMIUM KITCHEN.
+        validation,
 
-STYLE:
-${style}
+        memory,
 
-ROOM SCAN:
-${JSON.stringify(roomData, null, 2)}
+        previousImage,
 
-ROOM ANALYSIS:
-${roomAnalysis}
+        isCorrection,
 
-PAMIĘĆ:
-${JSON.stringify(projectMemory, null, 2)}
+        correctionRequest,
 
-ROZMOWA:
-${conversation}
+        imageCount:
+          isCorrection
+            ? 1
+            : 3,
 
-IMPORTANT:
-- ultra photorealistic
-- cinematic lighting
-- realistic shadows
-- realistic reflections
-- premium luxury kitchen
-- architectural visualization quality
-- interior design magazine style
-- luxury apartment atmosphere
-- realistic proportions
-- realistic ergonomics
-- realistic materials
-- realistic wood
-- realistic stone countertop
-- premium appliances
-- luxury ambient light
-- soft shadows
-- realistic daylight
-- high-end render
-- octane render style
-- corona render style
-- extremely detailed
-- luxury premium interior
+        addLogo:
+          true,
+      });
 
-`;
+    if (
+      !render.generatedImage
+    ) {
 
-        if (
-          isEditingProject &&
-          previousImage
-        ) {
+      return Response.json(
+        {
+          success:
+            false,
 
-          imagePrompt += `
-
-TO JEST EDYCJA ISTNIEJĄCEGO PROJEKTU.
-
-ZACHOWAJ:
-- układ
-- szafki
-- wyspę
-- proporcje
-- ergonomię
-- architekturę pomieszczenia
-
-ZMIEŃ TYLKO:
-${message}
-
-REFERENCYJNY PROJEKT:
-${previousImage}
-
-`;
+          error:
+            "Nie udało się wygenerować wizualizacji. Spróbuj ponownie.",
+        },
+        {
+          status:
+            500,
         }
-
-        const imageResult =
-          await openai.images.generate({
-
-            model:
-              "gpt-image-1",
-
-            prompt:
-              imagePrompt,
-
-            size:
-              "1024x1536",
-          });
-
-        const rawImage =
-          imageResult.data?.[0]
-            ?.b64_json;
-
-        if (rawImage) {
-
-          const finalImage =
-            await addLogoToImage(
-              rawImage
-            );
-
-          generatedImages.push(
-            finalImage
-          );
-        }
-      }
-
-      // ====================================
-      // FLOORPLAN
-      // ====================================
-
-      if (!isEditingProject) {
-
-        const floorPrompt = `
-
-Professional architectural kitchen floorplan.
-
-STYLE:
-- premium CAD drawing
-- realistic proportions
-- professional kitchen planner
-- realistic ergonomics
-- modern architectural blueprint
-
-ROOM SCAN:
-${JSON.stringify(roomData, null, 2)}
-
-ROOM ANALYSIS:
-${roomAnalysis}
-
-`;
-
-        const floor =
-          await openai.images.generate({
-
-            model:
-              "gpt-image-1",
-
-            prompt:
-              floorPrompt,
-
-            size:
-              "1536x1024",
-          });
-
-        const rawFloor =
-          floor.data?.[0]
-            ?.b64_json;
-
-        if (rawFloor) {
-
-          floorPlan =
-            await addLogoToImage(
-              rawFloor
-            );
-        }
-      }
-
-    } catch (imageError) {
-
-      console.log(
-        "IMAGE ERROR:",
-        imageError
       );
     }
 
-    // ====================================
-    // ESTIMATE
-    // ====================================
+    // 7. RZUT 2D
+
+    const floorPlan =
+      isCorrection
+        ? null
+        : await generateFloorPlan(
+            correctedDesign
+          );
+
+    // 8. WYCENA I ODPOWIEDŹ
 
     const estimate =
       calculateFurnitureEstimate(
-        aiReply
+        correctedDesign
+      );
+
+    const reply =
+      createProjectReply(
+        correctedDesign,
+        memory.version_number,
+        estimate,
+        isCorrection,
+        correctionRequest
       );
 
     return Response.json({
+      success:
+        true,
 
-      success: true,
-
-      reply: `
-
-${aiReply}
-
----
-
-# ROOM SCANNER AI
-
-Wykryty układ:
-${roomData.layout}
-
-Szacowany rozmiar:
-${roomData.estimated_size}
-
-Okna:
-${roomData.windows}
-
-Drzwi:
-${roomData.doors}
-
-Możliwość wyspy:
-${roomData.has_island_space ? "TAK" : "NIE"}
-
----
-
-# SZACUNKOWA WYCENA
-
-NETTO:
-${estimate.netto} zł
-
-BRUTTO:
-${estimate.brutto} zł
-
-AGD wyceniane osobno.
-
-Możesz dalej:
-- poprawiać projekt
-- zmieniać układ
-- zmieniać materiały
-- edytować wizualizację
-
-`,
+      reply,
 
       generatedImage:
-        generatedImages[0],
+        render.generatedImage,
 
-      generatedImages,
+      generatedImages:
+        render.generatedImages,
 
       floorPlan,
 
-      roomData,
+      roomData:
+        room.roomData,
+
+      design:
+        correctedDesign,
+
+      validation,
+
+      furniturePlan,
+
+      estimate,
+
+      versionNumber:
+        memory.version_number,
+
+      changeHistory:
+        memory.change_history,
 
       memory:
-        projectMemory,
+        responseMemory,
     });
 
-  } catch (err: any) {
+  } catch (
+    error: unknown
+  ) {
 
-    console.log(
+    console.error(
       "CHAT API ERROR:",
-      err
+      error
     );
 
-    return Response.json({
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Błąd AI";
 
-      success: false,
+    return Response.json(
+      {
+        success:
+          false,
 
-      error:
-        err?.message ||
-        "Błąd AI",
-    });
+        error:
+          message,
+      },
+      {
+        status:
+          500,
+      }
+    );
   }
 }

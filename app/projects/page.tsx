@@ -99,9 +99,9 @@ export default function ProjectsPage() {
     ) {
 
       return `
-        bg-yellow-500/20
-        text-yellow-300
-        border-yellow-500/20
+        bg-[#d8aa4c]/15
+        text-[#f0c56e]
+        border-[#d8aa4c]/25
       `;
     }
 
@@ -117,8 +117,8 @@ export default function ProjectsPage() {
     }
 
     return `
-      bg-white/10
-      text-white
+      bg-white/[0.05]
+      text-gray-200
       border-white/10
     `;
   }
@@ -127,7 +127,7 @@ export default function ProjectsPage() {
 
     <main className="
       min-h-screen
-      bg-black
+      bg-[#07090d]
       text-white
       relative
       overflow-hidden
@@ -141,9 +141,9 @@ export default function ProjectsPage() {
         absolute
         inset-0
         bg-gradient-to-br
-        from-black
-        via-black/95
-        to-blue-950/40
+        from-[#07090d]
+        via-[#090c11]
+        to-[#15110a]
       " />
 
       {/* GLOW */}
@@ -154,7 +154,7 @@ export default function ProjectsPage() {
         left-0
         w-[700px]
         h-[700px]
-        bg-blue-600/20
+        bg-[#d8aa4c]/15
         blur-[180px]
         rounded-full
       " />
@@ -165,7 +165,7 @@ export default function ProjectsPage() {
         right-0
         w-[600px]
         h-[600px]
-        bg-purple-600/20
+        bg-[#f0c56e]/10
         blur-[180px]
         rounded-full
       " />
@@ -193,7 +193,7 @@ export default function ProjectsPage() {
 
             <Image
               src="/logo.png"
-              alt="DreamS AI"
+              alt="Projektuj AI"
               width={220}
               height={80}
               priority
@@ -211,7 +211,7 @@ export default function ProjectsPage() {
               lg:text-6xl
               font-black
             ">
-              DreamS CRM
+              Moje projekty
             </h1>
 
             <p className="
@@ -221,9 +221,9 @@ export default function ProjectsPage() {
               max-w-3xl
               leading-relaxed
             ">
-              Profesjonalny panel
-              projektów i klientów
-              DreamS AI.
+              Wszystkie zapisane wizualizacje
+              i projekty Projektuj AI
+              w jednym miejscu.
             </p>
 
           </div>
@@ -242,19 +242,21 @@ export default function ProjectsPage() {
               }
 
               className="
-                bg-white
+                bg-gradient-to-r
+                from-[#d8aa4c]
+                to-[#f4ca73]
                 text-black
-                hover:scale-105
+                hover:brightness-110
                 transition
                 px-8
                 py-5
-                rounded-3xl
+                rounded-2xl
                 font-bold
                 text-lg
                 shadow-2xl
               "
             >
-              Nowy projekt
+              + Nowy projekt
             </button>
 
           </div>
@@ -303,11 +305,11 @@ export default function ProjectsPage() {
           projects.length === 0 && (
 
             <div className="
-              bg-white/5
+              bg-[#0c1016]/95
               border
               border-white/10
               backdrop-blur-xl
-              rounded-[40px]
+              rounded-[32px]
               p-20
               text-center
             ">
@@ -334,10 +336,9 @@ export default function ProjectsPage() {
                 mx-auto
                 leading-relaxed
               ">
-                Wygeneruj pierwszą
-                wizualizację kuchni premium,
-                aby pojawiła się
-                w historii projektów.
+                Utwórz pierwszy projekt,
+                aby pojawił się
+                w historii Projektuj AI.
               </p>
 
             </div>
@@ -367,16 +368,18 @@ export default function ProjectsPage() {
                 }
 
                 className="
-                  bg-white/5
+                  bg-[#0c1016]/95
                   border
                   border-white/10
                   backdrop-blur-xl
-                  rounded-[35px]
+                  rounded-[28px]
                   overflow-hidden
                   shadow-2xl
                   cursor-pointer
-                  hover:scale-[1.02]
+                  hover:-translate-y-1
+                  hover:border-[#d8aa4c]/40
                   transition
+                  duration-300
                 "
               >
 
@@ -513,7 +516,7 @@ export default function ProjectsPage() {
                       text-sm
                       text-gray-500
                     ">
-                      DreamS AI
+                      Projektuj AI
                     </div>
 
                     <button
@@ -528,17 +531,19 @@ export default function ProjectsPage() {
                       }}
 
                       className="
-                        bg-white
-                        text-black
+                        border
+                        border-white/15
+                        bg-white/[0.04]
+                        text-white
                         px-4
                         py-3
-                        rounded-2xl
+                        rounded-xl
                         font-bold
-                        hover:scale-105
+                        hover:bg-white/[0.08]
                         transition
                       "
                     >
-                      Pobierz PDF
+                      PDF
                     </button>
 
                   </div>
