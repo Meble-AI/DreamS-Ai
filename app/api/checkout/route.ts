@@ -134,7 +134,7 @@ function getAllowedPrices() {
           "START",
 
         credits:
-          9,
+          3,
       }
     );
   }
@@ -162,7 +162,7 @@ function getAllowedPrices() {
           "PREMIUM",
 
         credits:
-          3,
+          9,
       }
     );
   }
