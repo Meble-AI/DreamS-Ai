@@ -8,12 +8,66 @@ import {
 const stripeSecretKey =
   process.env.STRIPE_SECRET_KEY;
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL;
+function cleanEnvironmentValue(
+  value: string | undefined
+): string {
 
-const supabaseServerKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_KEY;
+  return String(
+    value || ""
+  )
+    .trim()
+    .replace(
+      /^["']|["']$/g,
+      ""
+    );
+}
+
+function normalizeSupabaseUrl(
+  value: string | undefined
+): string {
+
+  const rawValue =
+    cleanEnvironmentValue(
+      value
+    );
+
+  if (!rawValue) {
+
+    return "";
+  }
+
+  try {
+
+    const parsedUrl =
+      new URL(
+        rawValue
+      );
+
+    return parsedUrl.origin;
+
+  } catch {
+
+    return rawValue
+      .replace(
+        /\/(rest|auth|storage)\/v1.*$/i,
+        ""
+      )
+      .replace(
+        /\/+$/,
+        ""
+      );
+  }
+}
+
+const supabaseUrl =
+  normalizeSupabaseUrl(
+    process.env.NEXT_PUBLIC_SUPABASE_URL
+  );
+
+const supabaseAnonKey =
+  cleanEnvironmentValue(
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 
 if (!stripeSecretKey) {
   throw new Error(
@@ -23,10 +77,10 @@ if (!stripeSecretKey) {
 
 if (
   !supabaseUrl ||
-  !supabaseServerKey
+  !supabaseAnonKey
 ) {
   throw new Error(
-    "Brak danych Supabase po stronie serwera."
+    "Brak NEXT_PUBLIC_SUPABASE_URL lub NEXT_PUBLIC_SUPABASE_ANON_KEY."
   );
 }
 
@@ -35,17 +89,6 @@ const stripe =
     stripeSecretKey
   );
 
-const supabase =
-  createClient(
-    supabaseUrl,
-    supabaseServerKey,
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    }
-  );
 
 type CheckoutBody = {
   priceId?: string;
@@ -91,7 +134,7 @@ function getAllowedPrices() {
           "START",
 
         credits:
-          1,
+          9,
       }
     );
   }
@@ -105,7 +148,7 @@ function getAllowedPrices() {
           "PRO",
 
         credits:
-          2,
+          6,
       }
     );
   }
@@ -213,6 +256,31 @@ export async function POST(
       );
     }
 
+    const supabase =
+      createClient(
+        supabaseUrl,
+        supabaseAnonKey,
+        {
+          auth: {
+            persistSession:
+              false,
+
+            autoRefreshToken:
+              false,
+
+            detectSessionInUrl:
+              false,
+          },
+
+          global: {
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+            },
+          },
+        }
+      );
+
     const {
       data: userData,
       error: userError,
@@ -230,7 +298,24 @@ export async function POST(
 
       console.error(
         "SUPABASE AUTH ERROR:",
-        userError
+        {
+          message:
+            userError?.message,
+
+          status:
+            userError?.status,
+
+          supabaseHost:
+            (() => {
+              try {
+                return new URL(
+                  supabaseUrl
+                ).hostname;
+              } catch {
+                return "invalid";
+              }
+            })(),
+        }
       );
 
       return Response.json(

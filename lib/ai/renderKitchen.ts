@@ -36,6 +36,9 @@ type RenderKitchenOptions = {
     string |
     null;
 
+  roomImages?:
+    string[];
+
   isCorrection?:
     boolean;
 
@@ -381,7 +384,9 @@ Poprzedni układ:
 ${memory?.layout || design.layout}
 
 KRYTYCZNE ZASADY:
-- dokładnie jedna lodówka
+- dokładnie jedna lodówka — LODÓWKA JEST OBOWIĄZKOWA I NIE MOŻE ZNIKNĄĆ Z WIZUALIZACJI
+- jeśli lodówka jest w zabudowie, pokaż jednoznaczny słupek lodówkowy 600 mm
+- nie zastępuj lodówki zwykłą szafą wysoką
 - dokładnie jeden zlew
 - dokładnie jedna płyta grzewcza
 - dokładnie jeden piekarnik
@@ -402,6 +407,25 @@ KRYTYCZNE ZASADY:
 - bez napisów
 - bez wymiarów na obrazie
 - bez znaków wodnych poza logo dodawanym później przez aplikację
+
+LOGIKA SZAFEK GÓRNYCH — BEZWZGLĘDNA:
+- standardowa głębokość górnych szafek: około 350 mm
+- sąsiadujące górne szafki mają mieć spójną głębokość i jedną linię frontów
+- nie twórz przypadkowych uskoków głębokości
+- wysoka zabudowa 560–600 mm nie może wyglądać jak górna szafka
+- w narożniku nie zestawiaj dwóch wiszących szafek o przypadkowo różnych głębokościach
+- narożnik rozwiązuj poprawnie stolarsko: szafka narożna o spójnej głębokości ALBO zakończenie ciągu blendą/dystansem
+- fronty w narożniku nie mogą kolidować przy otwieraniu
+- jeżeli narożnik jest niepewny, lepiej zakończyć ciąg blendą niż tworzyć nielogiczną bryłę
+- wyjątek dla okapu może mieć lokalną różnicę konstrukcyjną, ale nie może wyglądać jak przypadkowy głęboki słupek wiszący
+
+KONTROLA AGD PRZED ZWROTEM OBRAZU:
+- lodówka = dokładnie 1
+- zlew = dokładnie 1
+- płyta = dokładnie 1
+- piekarnik = dokładnie 1
+- zmywarka = dokładnie 1
+- jeśli lodówki nie widać lub nie jest jednoznacznie zabudowana, wynik jest niepoprawny
 
 JAKOŚĆ:
 - ultra photorealistic
@@ -425,6 +449,86 @@ JAKOŚĆ:
 `.trim();
 }
 
+function buildRoomPhotoPrompt({
+  design,
+  validation,
+}: {
+  design: KitchenDesign;
+  validation?: KitchenValidationResult | null;
+}): string {
+
+  const modules =
+    buildModulesDescription(design);
+
+  const validationText =
+    buildValidationDescription(validation);
+
+  return `
+EDYTUJ ZAŁĄCZONE ORYGINALNE ZDJĘCIE POMIESZCZENIA KLIENTA I WSTAW DO NIEGO PROJEKT KUCHNI.
+
+ZAŁĄCZONE ZDJĘCIE JEST JEDYNYM ŹRÓDŁEM PRAWDY DLA ARCHITEKTURY POMIESZCZENIA.
+
+NIE GENERUJ NOWEGO POMIESZCZENIA.
+NIE ZMIENIAJ ARCHITEKTURY.
+
+BEZWZGLĘDNIE ZACHOWAJ:
+- dokładny kadr i perspektywę
+- położenie kamery
+- proporcje pomieszczenia
+- ściany, narożniki i wnęki
+- dokładną liczbę, wielkość i położenie okien
+- dokładną liczbę, wielkość i położenie drzwi i przejść
+- sufit i podłogę
+- słupy, skosy, grzejniki i inne stałe elementy
+
+NIE WOLNO:
+- przesuwać, usuwać ani dodawać okien
+- przesuwać, usuwać ani dodawać drzwi
+- zmieniać szerokości lub wysokości pomieszczenia
+- tworzyć albo usuwać ścian
+- zmieniać punktu widzenia
+- tworzyć nowego wnętrza zamiast tego ze zdjęcia
+
+PROJEKT:
+${design.summary}
+
+UKŁAD:
+${design.layout}
+
+MODUŁY:
+${modules}
+
+AGD:
+- lodówka: ${design.appliances.refrigerator}
+- zlew: ${design.appliances.sink}
+- płyta: ${design.appliances.hob}
+- piekarnik: ${design.appliances.oven}
+- zmywarka: ${design.appliances.dishwasher}
+- okap: ${design.appliances.hood}
+
+MATERIAŁY:
+- styl: ${design.materials.style}
+- fronty: ${design.materials.fronts}
+- blat: ${design.materials.countertop}
+- system otwierania: ${design.materials.handles}
+- korpus: ${design.materials.carcass}
+- wysłona: ${design.materials.backsplash}
+- cokół: ${design.materials.plinth}
+
+${validationText}
+
+Wstaw zabudowę do istniejącego wnętrza tak, jakby została naprawdę wykonana.
+Nie zasłaniaj okien ani przejść.
+Dokładnie jedna lodówka, jeden zlew, jedna płyta, jeden piekarnik i jedna zmywarka.
+Fotorealizm profesjonalnej fotografii wnętrz.
+Bez napisów i wymiarów.
+
+KONTROLA KOŃCOWA:
+wynik ma przedstawiać TO SAMO pomieszczenie co fotografia wejściowa — z zachowaną architekturą, kadrem i perspektywą — ale z zaprojektowaną zabudową kuchenną.
+`.trim();
+}
+
+
 function buildEditPrompt({
   design,
   validation,
@@ -446,9 +550,10 @@ function buildEditPrompt({
     string;
 }): string {
 
-  const protectedElements =
-    buildProtectedElementsDescription(
-      memory
+  const correction =
+    cleanText(
+      correctionRequest,
+      "Brak jednoznacznej poprawki."
     );
 
   const validationText =
@@ -458,77 +563,76 @@ function buildEditPrompt({
 
   return `
 
-EDYTUJ ZAŁĄCZONĄ WIZUALIZACJĘ KUCHNI.
+EDYTUJ DOKŁADNIE ZAŁĄCZONĄ WIZUALIZACJĘ KUCHNI.
 
-UWAGA KLIENTA:
-${cleanText(
-  correctionRequest,
-  "Brak jednoznacznej poprawki."
-)}
+NAJWAŻNIEJSZA INSTRUKCJA — MA ABSOLUTNY PRIORYTET:
+"${correction}"
 
-ZAŁĄCZONA WIZUALIZACJA JEST OBOWIĄZUJĄCĄ BAZĄ.
+OBRAZ WEJŚCIOWY JEST JEDYNYM ŹRÓDŁEM PRAWDY DLA:
+- układu kuchni
+- liczby i położenia szafek
+- położenia AGD
+- okien
+- drzwi
+- ścian
+- perspektywy
+- kadru
+- proporcji mebli
+- aktualnych materiałów i kolorów
 
-NIE TWÓRZ NOWEJ KUCHNI.
-NIE TWÓRZ NOWEJ SCENY.
-NIE ZMIENIAJ KOMPOZYCJI.
+DANE TEKSTOWE PONIŻEJ SĄ WYŁĄCZNIE POMOCNICZE.
+JEŚLI SĄ SPRZECZNE Z OBRAZEM LUB POLECENIEM KLIENTA,
+ZIGNORUJ JE.
 
-ELEMENTY CHRONIONE:
-${protectedElements}
-
-AKTUALNY PROJEKT:
+POMOCNICZY OPIS TECHNICZNY:
 - układ: ${design.layout}
 - styl: ${design.materials.style}
 - fronty: ${design.materials.fronts}
 - blat: ${design.materials.countertop}
 - system otwierania: ${design.materials.handles}
 - wyspa: ${design.island.included ? "TAK" : "NIE"}
-- wersja: ${memory?.version_number || 1}
-
-AGD, KTÓRE MUSI POZOSTAĆ SPÓJNE:
-- lodówka: ${design.appliances.refrigerator}
-- zlew: ${design.appliances.sink}
-- płyta: ${design.appliances.hob}
-- piekarnik: ${design.appliances.oven}
-- zmywarka: ${design.appliances.dishwasher}
-- okap: ${design.appliances.hood}
 
 ${validationText}
 
+SPOSÓB WYKONANIA POPRAWKI:
+1. Najpierw znajdź na obrazie element wskazany przez klienta.
+2. Zmień ten element WYRAŹNIE i WIDOCZNIE zgodnie z poleceniem.
+3. Nie wykonuj kosmetycznej, ledwo widocznej zmiany.
+4. Wszystko, czego klient nie wskazał, pozostaw możliwie identyczne.
+5. Jeśli klient prosi o zmianę koloru lub materiału, nowy kolor/materiał ma być jednoznacznie widoczny.
+6. Jeśli klient prosi o dodanie elementu, dodaj go dokładnie w logicznym miejscu i nie zmieniaj reszty projektu.
+7. Jeśli klient prosi o usunięcie elementu, usuń tylko ten element i odtwórz realistycznie tło.
+8. Jeśli klient prosi o zmianę konkretnej szafki/bryły, zmień tylko tę bryłę.
+
 ZASADY BEZWZGLĘDNE:
-- zmień wyłącznie to, o co poprosił klient
+- WYKONAJ polecenie klienta; nie wolno pozostawić obrazu bez zmiany
+- lodówka jest elementem obowiązkowym; jeśli poprawka jej nie dotyczy, nie wolno jej usuwać
+- zachowaj dokładnie jedną lodówkę
+- górne szafki utrzymuj w spójnej głębokości około 350 mm
+- w narożniku nie twórz przypadkowego uskoku głębokości; zastosuj poprawne rozwiązanie narożne albo blendę
+- nie twórz nowej kuchni
+- nie twórz nowej sceny
 - zachowaj identyczny kadr
 - zachowaj identyczną perspektywę
-- zachowaj identyczny punkt widzenia
 - zachowaj położenie kamery
-- zachowaj ściany
-- zachowaj okna
-- zachowaj drzwi
-- zachowaj przejścia
-- zachowaj sufit
-- zachowaj podłogę
+- zachowaj ściany, okna, drzwi, przejścia, sufit i podłogę
 - zachowaj wszystkie meble, których poprawka nie dotyczy
-- zachowaj wszystkie materiały, których poprawka nie dotyczy
-- zachowaj wszystkie kolory, których poprawka nie dotyczy
-- zachowaj wszystkie urządzenia AGD, których poprawka nie dotyczy
-- nie dodawaj nowych elementów
-- nie usuwaj elementów bez polecenia
-- nie poprawiaj niczego z własnej inicjatywy
-- nie duplikuj lodówki
-- nie duplikuj zlewu
-- nie duplikuj płyty
-- nie duplikuj piekarnika
-- nie duplikuj zmywarki
-- nie zmieniaj pory dnia
+- zachowaj AGD, którego poprawka nie dotyczy
+- nie dodawaj elementów niezamówionych przez klienta
+- nie usuwaj elementów nieobjętych poleceniem
+- nie duplikuj lodówki, zlewu, płyty, piekarnika ani zmywarki
 - nie zmieniaj oświetlenia, jeśli klient o to nie prosił
 - nie zmieniaj stylu całej kuchni, jeśli klient o to nie prosił
-- nie zmieniaj wielkości wyspy, jeśli klient o to nie prosił
-- wynik musi wyglądać jak lokalna poprawka tego samego zdjęcia
 - wszystkie nieedytowane obszary mają pozostać możliwie identyczne
-- zachowaj wysoką wierność obrazu wejściowego
 - fotorealizm
 - brak napisów
 - brak wymiarów na obrazie
-- brak nowych dekoracji
+
+KONTROLA KOŃCOWA:
+Przed zwróceniem obrazu sprawdź, czy polecenie
+"${correction}"
+jest faktycznie widoczne na wyniku.
+Jeżeli nie — popraw obraz ponownie w ramach tej samej edycji.
 
 `.trim();
 }
@@ -569,16 +673,32 @@ export async function renderKitchen({
   validation = null,
   memory = null,
   previousImage = null,
+  roomImages = [],
   isCorrection = false,
   correctionRequest = "",
   imageCount = 1,
   addLogo = true,
 }: RenderKitchenOptions): Promise<RenderKitchenResult> {
 
+  const sourceRoomImage =
+    Array.isArray(roomImages)
+      ? roomImages.find(
+          (image) =>
+            typeof image === "string" &&
+            image.startsWith("data:image/")
+        ) || null
+      : null;
+
   const shouldEdit =
     Boolean(
       isCorrection &&
       previousImage
+    );
+
+  const shouldUseRoomPhoto =
+    Boolean(
+      !shouldEdit &&
+      sourceRoomImage
     );
 
   const safeCount =
@@ -600,11 +720,16 @@ export async function renderKitchen({
           memory,
           correctionRequest,
         })
-      : buildGenerationPrompt({
-          design,
-          validation,
-          memory,
-        });
+      : shouldUseRoomPhoto
+        ? buildRoomPhotoPrompt({
+            design,
+            validation,
+          })
+        : buildGenerationPrompt({
+            design,
+            validation,
+            memory,
+          });
 
   const generatedImages:
     string[] = [];
@@ -612,6 +737,99 @@ export async function renderKitchen({
   try {
 
     if (
+      shouldUseRoomPhoto &&
+      sourceRoomImage
+    ) {
+
+      const normalizedImage =
+        normalizeBase64Image(
+          sourceRoomImage
+        );
+
+      const imageBuffer =
+        Buffer.from(
+          normalizedImage,
+          "base64"
+        );
+
+      const isJpeg =
+        sourceRoomImage.startsWith(
+          "data:image/jpeg"
+        ) ||
+        sourceRoomImage.startsWith(
+          "data:image/jpg"
+        );
+
+      const mimeType =
+        isJpeg
+          ? "image/jpeg"
+          : "image/png";
+
+      const extension =
+        isJpeg
+          ? "jpg"
+          : "png";
+
+      const imageFile =
+        await toFile(
+          imageBuffer,
+          `client-room.${extension}`,
+          {
+            type:
+              mimeType,
+          }
+        );
+
+      /*
+       * Każdy wariant powstaje jako EDYCJA tego samego
+       * oryginalnego zdjęcia klienta, a nie generacja od zera.
+       */
+      for (
+        let index = 0;
+        index < safeCount;
+        index += 1
+      ) {
+
+        const result =
+          await openai.images.edit({
+            model:
+              "gpt-image-1.5",
+
+            image:
+              imageFile,
+
+            prompt:
+              `${prompt}
+
+WARIANT ${index + 1}/${safeCount}.
+Zachowaj dokładnie architekturę, kadr i perspektywę zdjęcia wejściowego.
+Różnicuj wyłącznie rozwiązanie zabudowy kuchennej zgodnie z projektem.`,
+
+            size:
+              "1024x1536",
+
+            quality:
+              "high",
+
+            input_fidelity:
+              "high",
+          });
+
+        const rawImage =
+          result.data?.[0]
+            ?.b64_json;
+
+        if (rawImage) {
+          generatedImages.push(
+            await addOptionalLogo(
+              rawImage,
+              addLogo
+            )
+          );
+        }
+      }
+
+    } else if (
       shouldEdit &&
       previousImage
     ) {
@@ -627,13 +845,31 @@ export async function renderKitchen({
           "base64"
         );
 
+      const isJpeg =
+        previousImage.startsWith(
+          "data:image/jpeg"
+        ) ||
+        previousImage.startsWith(
+          "data:image/jpg"
+        );
+
+      const mimeType =
+        isJpeg
+          ? "image/jpeg"
+          : "image/png";
+
+      const extension =
+        isJpeg
+          ? "jpg"
+          : "png";
+
       const imageFile =
         await toFile(
           imageBuffer,
-          "previous-kitchen.png",
+          `previous-kitchen.${extension}`,
           {
             type:
-              "image/png",
+              mimeType,
           }
         );
 
@@ -673,51 +909,97 @@ export async function renderKitchen({
 
     } else {
 
-      for (
-        let index = 0;
-        index < safeCount;
-        index += 1
-      ) {
+      const cameraAngles = [
+        `
+UJĘCIE 1 — GŁÓWNE:
+- szeroki, reprezentacyjny kadr pokazujący całą zabudowę
+- naturalna perspektywa wnętrzarska
+- pokaż układ kuchni możliwie kompletnie
+`,
+        `
+UJĘCIE 2 — BOCZNE:
+- pokaż dokładnie TEN SAM projekt z drugiej strony
+- kamera przesunięta w bok o około 35–45 stopni
+- zachowaj identyczny układ, materiały, kolory, AGD i wyposażenie
+`,
+        `
+UJĘCIE 3 — DRUGA PERSPEKTYWA:
+- pokaż dokładnie TEN SAM projekt z przeciwnego narożnika lub bliższej perspektywy
+- pokaż fronty, blat, uchwyty i najważniejsze detale zabudowy
+- zachowaj identyczny układ, materiały, kolory, AGD i wyposażenie
+`,
+      ];
 
-        const variantPrompt =
-          safeCount > 1
-            ? `${prompt}
+      const generatedResults =
+        await Promise.all(
+          Array.from({
+            length:
+              safeCount,
+          }).map(
+            async (
+              _,
+              index
+            ) => {
 
-WARIANT RENDERU:
-${index + 1}
+              const variantPrompt =
+                safeCount > 1
+                  ? `${prompt}
 
-Zachowaj dokładnie ten sam projekt techniczny.
-Zmieniaj wyłącznie subtelnie sposób oświetlenia i charakter fotografii.
-Nie zmieniaj układu, modułów, AGD ani materiałów.
+${cameraAngles[index] || cameraAngles[0]}
+
+ZASADY SPÓJNOŚCI:
+- wszystkie obrazy przedstawiają dokładnie tę samą kuchnię
+- identyczna liczba i położenie szafek
+- identyczne kolory frontów
+- identyczny materiał i kolor blatu
+- identyczny system uchwytów / otwierania
+- identyczne AGD
+- identyczna wyspa, jeśli występuje
+- identyczne ściany, okna, drzwi i podłoga
+- zmienia się wyłącznie punkt ustawienia kamery
 `
-            : prompt;
+                  : prompt;
 
-        const result =
-          await openai.images.generate({
-            model:
-              "gpt-image-1",
+              const result =
+                await openai.images.generate({
+                  model:
+                    "gpt-image-1",
 
-            prompt:
-              variantPrompt,
+                  prompt:
+                    variantPrompt,
 
-            size:
-              "1024x1536",
-          });
+                  size:
+                    "1024x1536",
+                });
 
-        const rawImage =
-          result.data?.[0]
-            ?.b64_json;
+              const rawImage =
+                result.data?.[0]
+                  ?.b64_json;
 
-        if (rawImage) {
+              if (!rawImage) {
+                return null;
+              }
 
-          generatedImages.push(
-            await addOptionalLogo(
-              rawImage,
-              addLogo
-            )
-          );
+              return await addOptionalLogo(
+                rawImage,
+                addLogo
+              );
+            }
+          )
+        );
+
+      generatedResults.forEach(
+        (
+          image
+        ) => {
+
+          if (image) {
+            generatedImages.push(
+              image
+            );
+          }
         }
-      }
+      );
     }
 
     return {
@@ -730,7 +1012,10 @@ Nie zmieniaj układu, modułów, AGD ani materiałów.
       prompt,
 
       mode:
-        shouldEdit
+        (
+          shouldEdit ||
+          shouldUseRoomPhoto
+        )
           ? "edit"
           : "generate",
     };
@@ -754,7 +1039,10 @@ Nie zmieniaj układu, modułów, AGD ani materiałów.
       prompt,
 
       mode:
-        shouldEdit
+        (
+          shouldEdit ||
+          shouldUseRoomPhoto
+        )
           ? "edit"
           : "generate",
     };

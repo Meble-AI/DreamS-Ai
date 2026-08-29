@@ -620,7 +620,7 @@ STYL:
           : []),
 
         {
-          role: "assistant",
+          role: "assistant" as const,
           content:
             designerReply,
         },

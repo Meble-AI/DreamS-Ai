@@ -44,7 +44,10 @@ export default function ProjectsPage() {
           return;
         }
 
-        const { data } =
+        const {
+          data,
+          error,
+        } =
           await supabase
 
             .from("projects")
@@ -59,11 +62,35 @@ export default function ProjectsPage() {
             .order(
               "created_at",
               {
-                ascending: false,
+                ascending:
+                  false,
               }
             );
 
-        setProjects(data || []);
+        if (
+          error
+        ) {
+
+          console.error(
+            "LOAD PROJECTS ERROR:",
+            error
+          );
+
+          alert(
+            `Nie udało się pobrać historii projektów: ${error.message}`
+          );
+
+          setProjects(
+            []
+          );
+
+          return;
+        }
+
+        setProjects(
+          data ||
+          []
+        );
 
       } catch (err) {
 
@@ -99,9 +126,9 @@ export default function ProjectsPage() {
     ) {
 
       return `
-        bg-[#d8aa4c]/15
-        text-[#f0c56e]
-        border-[#d8aa4c]/25
+        bg-yellow-500/20
+        text-yellow-300
+        border-yellow-500/20
       `;
     }
 
@@ -116,448 +143,196 @@ export default function ProjectsPage() {
       `;
     }
 
+    if (
+      status === "Zapisany"
+    ) {
+
+      return `
+        bg-[#d8aa4c]/15
+        text-[#f0c56e]
+        border-[#d8aa4c]/30
+      `;
+    }
+
     return `
-      bg-white/[0.05]
-      text-gray-200
+      bg-white/10
+      text-white
       border-white/10
     `;
   }
 
+
+  function getProjectMeta(
+    project: any
+  ) {
+
+    const conversation =
+      Array.isArray(
+        project?.conversation
+      )
+        ? project.conversation
+        : [];
+
+    return (
+      conversation.find(
+        (
+          item: any
+        ) =>
+          item?.__dreamsProjectMeta ===
+          true
+      ) ||
+      null
+    );
+  }
+
+  function getProjectStatus(
+    project: any
+  ) {
+
+    return (
+      getProjectMeta(
+        project
+      )?.status ||
+      "Zapisany"
+    );
+  }
+
   return (
-
-    <main className="
-      min-h-screen
-      bg-[#07090d]
-      text-white
-      relative
-      overflow-hidden
-      p-6
-      lg:p-10
-    ">
-
-      {/* BACKGROUND */}
-
-      <div className="
-        absolute
-        inset-0
-        bg-gradient-to-br
-        from-[#07090d]
-        via-[#090c11]
-        to-[#15110a]
-      " />
-
-      {/* GLOW */}
-
-      <div className="
-        absolute
-        top-0
-        left-0
-        w-[700px]
-        h-[700px]
-        bg-[#d8aa4c]/15
-        blur-[180px]
-        rounded-full
-      " />
-
-      <div className="
-        absolute
-        bottom-0
-        right-0
-        w-[600px]
-        h-[600px]
-        bg-[#f0c56e]/10
-        blur-[180px]
-        rounded-full
-      " />
-
-      <div className="
-        relative
-        z-10
-        max-w-7xl
-        mx-auto
-      ">
-
-        {/* TOPBAR */}
-
-        <div className="
-          flex
-          flex-col
-          lg:flex-row
-          lg:items-center
-          lg:justify-between
-          gap-6
-          mb-12
-        ">
-
+    <main className="min-h-screen bg-[#07090d] text-white px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
-
-            <Image
-              src="/logo.png"
-              alt="Projektuj AI"
-              width={220}
-              height={80}
-              priority
-              style={{
-                width: "auto",
-                height: "auto",
-              }}
-              className="
-                mb-4
-              "
-            />
-
-            <h1 className="
-              text-5xl
-              lg:text-6xl
-              font-black
-            ">
-              Moje projekty
-            </h1>
-
-            <p className="
-              text-gray-400
-              text-xl
-              mt-4
-              max-w-3xl
-              leading-relaxed
-            ">
-              Wszystkie zapisane wizualizacje
-              i projekty Projektuj AI
-              w jednym miejscu.
-            </p>
-
+            <Image src="/logo.png" alt="Projektuj AI" width={220} height={80} className="mb-4 h-auto w-[210px]" />
+            <div className="text-sm uppercase tracking-[0.2em] text-[#d8aa4c] font-semibold">Historia projektów</div>
+            <h1 className="mt-3 text-5xl font-black">Moje projekty</h1>
+            <p className="mt-3 max-w-2xl text-lg text-gray-400">Tu znajdziesz projekty zapisane na później. Możesz je otworzyć i kontynuować dokładnie od miejsca, w którym skończyłeś.</p>
           </div>
-
-          <div className="
-            flex
-            gap-4
-            flex-wrap
-          ">
-
-            <button
-
-              onClick={() =>
-                window.location.href =
-                  "/dashboard"
-              }
-
-              className="
-                bg-gradient-to-r
-                from-[#d8aa4c]
-                to-[#f4ca73]
-                text-black
-                hover:brightness-110
-                transition
-                px-8
-                py-5
-                rounded-2xl
-                font-bold
-                text-lg
-                shadow-2xl
-              "
-            >
-              + Nowy projekt
-            </button>
-
-          </div>
-
+          <button onClick={()=>window.location.href="/dashboard"} className="rounded-2xl bg-gradient-to-r from-[#d8aa4c] to-[#f4ca73] px-7 py-4 font-bold text-black hover:brightness-110">
+            + Nowy projekt
+          </button>
         </div>
-
-        {/* LOADING */}
 
         {loading && (
-
-          <div className="
-            flex
-            flex-col
-            items-center
-            justify-center
-            py-32
-            gap-6
-          ">
-
-            <div className="
-              w-20
-              h-20
-              border-4
-              border-white
-              border-t-transparent
-              rounded-full
-              animate-spin
-            " />
-
-            <div className="
-              text-3xl
-              font-bold
-            ">
-              Ładowanie projektów...
-            </div>
-
+          <div className="py-24 text-center">
+            <div className="mx-auto h-16 w-16 animate-spin rounded-full border-4 border-[#d8aa4c] border-t-transparent"></div>
+            <div className="mt-6 text-2xl font-bold">Ładowanie projektów...</div>
           </div>
-
         )}
 
-        {/* EMPTY */}
+        {!loading && projects.length===0 && (
+          <div className="rounded-[32px] border border-white/10 bg-[#0c1016] p-16 text-center">
+            <div className="text-6xl">📁</div>
+            <h2 className="mt-5 text-3xl font-black">Nie masz jeszcze projektów</h2>
+            <p className="mt-4 text-gray-400">Kliknij „Zapisz na później” w swoim projekcie, a pojawi się tutaj i będzie można do niego wrócić.</p>
+          </div>
+        )}
 
-        {
-
-          !loading &&
-          projects.length === 0 && (
-
-            <div className="
-              bg-[#0c1016]/95
-              border
-              border-white/10
-              backdrop-blur-xl
-              rounded-[32px]
-              p-20
-              text-center
-            ">
-
-              <div className="
-                text-5xl
-                mb-6
-              ">
-                📂
-              </div>
-
-              <h2 className="
-                text-4xl
-                font-bold
-                mb-6
-              ">
-                Brak zapisanych projektów
-              </h2>
-
-              <p className="
-                text-gray-400
-                text-xl
-                max-w-2xl
-                mx-auto
-                leading-relaxed
-              ">
-                Utwórz pierwszy projekt,
-                aby pojawił się
-                w historii Projektuj AI.
-              </p>
-
-            </div>
-
-          )
-        }
-
-        {/* PROJECTS */}
-
-        <div className="
-          grid
-          md:grid-cols-2
-          xl:grid-cols-3
-          gap-8
-        ">
-
-          {projects.map(
-            (project) => (
-
-              <div
-
-                key={project.id}
-
-                onClick={() =>
-                  window.location.href =
-                    `/dashboard?project=${project.id}`
-                }
-
-                className="
-                  bg-[#0c1016]/95
-                  border
-                  border-white/10
-                  backdrop-blur-xl
-                  rounded-[28px]
-                  overflow-hidden
-                  shadow-2xl
-                  cursor-pointer
-                  hover:-translate-y-1
-                  hover:border-[#d8aa4c]/40
-                  transition
-                  duration-300
-                "
-              >
-
-                {
-
-                  project.image_url && (
-
-                    <img
-
-                      src={`data:image/png;base64,${project.image_url}`}
-
-                      alt="Projekt"
-
-                      className="
-                        w-full
-                        h-[320px]
-                        object-cover
-                      "
-                    />
-
-                  )
-                }
-
-                <div className="
-                  p-8
-                ">
-
-                  {/* STATUS */}
-
-                  <div className="
-                    flex
-                    items-center
-                    justify-between
-                    gap-4
-                    mb-6
-                  ">
-
-                    <div className={`
-                      px-4
-                      py-2
-                      rounded-2xl
-                      border
-                      text-sm
-                      font-bold
-                      ${getStatusColor(
-                        project.status
-                      )}
-                    `}>
-
-                      {
-                        project.status ||
-                        "Konsultacja"
-                      }
-
-                    </div>
-
-                    <div className="
-                      text-sm
-                      text-gray-500
-                    ">
-
-                      {
-
-                        new Date(
-                          project.created_at
-                        ).toLocaleDateString(
-                          "pl-PL"
-                        )
-                      }
-
-                    </div>
-
-                  </div>
-
-                  {/* CLIENT */}
-
-                  {(project.name ||
-                    project.city) && (
-
-                    <div className="
-                      mb-6
-                    ">
-
-                      {project.name && (
-
-                        <div className="
-                          text-lg
-                          font-bold
-                        ">
-                          {project.name}
-                        </div>
-
-                      )}
-
-                      {project.city && (
-
-                        <div className="
-                          text-gray-400
-                        ">
-                          {project.city}
-                        </div>
-
-                      )}
-
-                    </div>
-
-                  )}
-
-                  {/* PROMPT */}
-
-                  <div className="
-                    text-xl
-                    text-gray-200
-                    leading-relaxed
-                    whitespace-pre-wrap
-                    line-clamp-6
-                  ">
-
-                    {project.prompt}
-
-                  </div>
-
-                  {/* FOOTER */}
-
-                  <div className="
-                    mt-8
-                    flex
-                    items-center
-                    justify-between
-                    gap-4
-                  ">
-
-                    <div className="
-                      text-sm
-                      text-gray-500
-                    ">
-                      Projektuj AI
-                    </div>
-
-                    <button
-
-                      onClick={(e) => {
-
-                        e.stopPropagation();
-
-                        generatePremiumPDF({
-                          project,
-                        });
-                      }}
-
-                      className="
-                        border
-                        border-white/15
-                        bg-white/[0.04]
-                        text-white
-                        px-4
-                        py-3
-                        rounded-xl
-                        font-bold
-                        hover:bg-white/[0.08]
-                        transition
-                      "
-                    >
-                      PDF
-                    </button>
-
-                  </div>
-
+        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+          {projects.map(project=>(
+            <div key={project.id}
+              onClick={()=>{
+                localStorage.setItem(
+                  "dreams_last_project",
+                  project.id
+                );
+                window.location.href=`/dashboard?project=${project.id}`;
+              }}
+              className="overflow-hidden rounded-[28px] border border-white/10 bg-[#0c1016] cursor-pointer transition hover:-translate-y-1 hover:border-[#d8aa4c]/40">
+              {project.image_url && (
+                <img
+                  src={
+                    String(
+                      project.image_url
+                    ).startsWith(
+                      "data:image/"
+                    )
+                      ? project.image_url
+                      : `data:image/png;base64,${project.image_url}`
+                  }
+                  alt="Podgląd projektu"
+                  className="h-[300px] w-full object-cover"
+                />
+              )}
+              <div className="p-6">
+                <div className="mb-5 flex items-center justify-between">
+                  <span className={`rounded-xl border px-4 py-2 text-sm font-bold ${getStatusColor(getProjectStatus(project))}`}>
+                    {
+                      getProjectStatus(
+                        project
+                      ) ===
+                      "Zapisany"
+                        ? "Zapisany na później"
+                        : getProjectStatus(
+                            project
+                          )
+                    }
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    {new Date(
+                      project.created_at
+                    ).toLocaleDateString(
+                      "pl-PL"
+                    )}
+                  </span>
                 </div>
 
+                {(() => {
+                  const contact =
+                    getProjectMeta(project)?.contact || {};
+
+                  if (!contact.name && !contact.city) {
+                    return null;
+                  }
+
+                  return (
+                    <div className="mb-4">
+                      {contact.name && (
+                        <div className="font-bold text-lg">
+                          {contact.name}
+                        </div>
+                      )}
+
+                      {contact.city && (
+                        <div className="text-gray-400">
+                          {contact.city}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <div className="line-clamp-5 whitespace-pre-wrap text-gray-300">
+                  {project.prompt}
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    onClick={(e)=>{
+                      e.stopPropagation();
+                      localStorage.setItem(
+                        "dreams_last_project",
+                        project.id
+                      );
+                      window.location.href=`/dashboard?project=${project.id}`;
+                    }}
+                    className="flex-1 rounded-xl bg-gradient-to-r from-[#d8aa4c] to-[#f4ca73] py-3 font-bold text-black">
+                    Wznów projekt
+                  </button>
+
+                  <button
+                    onClick={(e)=>{
+                      e.stopPropagation();
+                      generatePremiumPDF({project});
+                    }}
+                    className="rounded-xl border border-white/15 px-5 py-3 font-semibold hover:bg-white/5">
+                    PDF
+                  </button>
+                </div>
               </div>
-            )
-          )}
-
+            </div>
+          ))}
         </div>
-
       </div>
-
     </main>
   );
 }

@@ -39,6 +39,10 @@ if (
   );
 }
 
+const verifiedWebhookSecret:
+  string =
+  webhookSecret;
+
 const stripe =
   new Stripe(
     stripeSecretKey
@@ -95,7 +99,7 @@ function getPlanForPrice(
         "START",
 
       credits:
-        1,
+        9,
     };
   }
 
@@ -109,7 +113,7 @@ function getPlanForPrice(
         "PRO",
 
       credits:
-        2,
+        6,
     };
   }
 
@@ -385,7 +389,7 @@ export async function POST(
           .constructEvent(
             rawBody,
             signature,
-            webhookSecret
+            verifiedWebhookSecret
           );
 
     } catch (

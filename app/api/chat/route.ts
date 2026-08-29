@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 import OpenAI from "openai";
 
@@ -48,11 +48,125 @@ import {
   furniturePlanner,
 } from "@/lib/ai/furniturePlanner";
 
-const openai =
-  new OpenAI({
-    apiKey:
-      process.env.OPENAI_API_KEY,
-  });
+const PRODUCTION_APP_URL =
+  "https://dreamsai.pl";
+
+function cleanSecret(
+  value:
+    string |
+    undefined
+): string {
+
+  return String(
+    value ||
+    ""
+  )
+    .trim()
+    .replace(
+      /^["']|["']$/g,
+      ""
+    );
+}
+
+async function proxyChatToProduction(
+  req:
+    Request
+): Promise<Response> {
+
+  const sourceUrl =
+    new URL(
+      req.url
+    );
+
+  const targetUrl =
+    new URL(
+      "/api/chat",
+      PRODUCTION_APP_URL
+    );
+
+  targetUrl.search =
+    sourceUrl.search;
+
+  const body =
+    await req.text();
+
+  const headers =
+    new Headers();
+
+  headers.set(
+    "content-type",
+    req.headers.get(
+      "content-type"
+    ) ||
+    "application/json"
+  );
+
+  headers.set(
+    "accept",
+    req.headers.get(
+      "accept"
+    ) ||
+    "application/json"
+  );
+
+  /*
+   * Lokalny frontend nie dostaje żadnego sekretu OpenAI.
+   * Żądanie wykonuje produkcyjna funkcja Vercel,
+   * która ma już OPENAI_API_KEY.
+   */
+  const response =
+    await fetch(
+      targetUrl,
+      {
+        method:
+          "POST",
+
+        headers,
+
+        body,
+
+        cache:
+          "no-store",
+      }
+    );
+
+  const responseHeaders =
+    new Headers();
+
+  const contentType =
+    response.headers.get(
+      "content-type"
+    );
+
+  if (
+    contentType
+  ) {
+
+    responseHeaders.set(
+      "content-type",
+      contentType
+    );
+  }
+
+  responseHeaders.set(
+    "cache-control",
+    "no-store"
+  );
+
+  return new Response(
+    response.body,
+    {
+      status:
+        response.status,
+
+      statusText:
+        response.statusText,
+
+      headers:
+        responseHeaders,
+    }
+  );
+}
 
 type HistoryItem = {
   user?: string;
@@ -257,87 +371,393 @@ function memoryToDesign(
   };
 }
 
+
+function enforceBasicKitchenLogic(
+  inputDesign: KitchenDesign
+): KitchenDesign {
+
+  const design =
+    structuredClone(
+      inputDesign
+    ) as KitchenDesign;
+
+  const appliances =
+    (
+      design.appliances ||
+      {}
+    ) as any;
+
+  if (
+    !appliances.refrigerator ||
+    /brak|nie dotyczy|bez lodówki|bez lodowki/i.test(
+      String(
+        appliances.refrigerator
+      )
+    )
+  ) {
+
+    appliances.refrigerator =
+      "Lodówka obowiązkowa w projekcie, najlepiej w wysokiej zabudowie 600 mm.";
+  }
+
+  design.appliances =
+    appliances;
+
+  const modules =
+    Array.isArray(
+      design.modules
+    )
+      ? [...design.modules]
+      : [];
+
+  const hasRefrigeratorModule =
+    modules.some(
+      (
+        module: any
+      ) => {
+
+        const text =
+          `${module?.name || ""} ${module?.function || ""} ${module?.notes || ""}`
+            .toLowerCase();
+
+        return (
+          text.includes("lodów") ||
+          text.includes("lodow") ||
+          text.includes("refriger")
+        );
+      }
+    );
+
+  if (
+    !hasRefrigeratorModule
+  ) {
+
+    modules.unshift(
+      {
+        id:
+          "required-refrigerator",
+
+        name:
+          "Słupek lodówkowy 600 mm",
+
+        category:
+          "wysoka_zabudowa",
+
+        width_mm:
+          600,
+
+        height_mm:
+          2100,
+
+        depth_mm:
+          600,
+
+        quantity:
+          1,
+
+        wall:
+          null,
+
+        function:
+          "Zabudowa lodówki — element obowiązkowy",
+
+        notes:
+          "Umieść logicznie na początku lub końcu ciągu wysokiej zabudowy. Nie stawiaj bezpośrednio przy płycie grzewczej.",
+      } as any
+    );
+  }
+
+  const normalizedModules =
+    modules.map(
+      (
+        module: any
+      ) => {
+
+        const text =
+          `${module?.name || ""} ${module?.category || ""} ${module?.function || ""}`
+            .toLowerCase();
+
+        const isUpper =
+          text.includes("górn") ||
+          text.includes("gorn") ||
+          text.includes("wisząc") ||
+          text.includes("wiszac") ||
+          text.includes("upper");
+
+        if (
+          !isUpper
+        ) {
+
+          return module;
+        }
+
+        const isHoodCabinet =
+          text.includes(
+            "okap"
+          );
+
+        return {
+          ...module,
+
+          depth_mm:
+            isHoodCabinet
+              ? Math.min(
+                  Number(
+                    module?.depth_mm ||
+                    350
+                  ),
+                  400
+                )
+              : 350,
+
+          notes:
+            `${module?.notes || ""} Górna szafka: standardowa głębokość 350 mm; utrzymaj wspólną linię frontów z sąsiednimi górnymi szafkami.`.trim(),
+        };
+      }
+    );
+
+  design.modules =
+    normalizedModules as any;
+
+  design.technical_notes =
+    [
+      ...(
+        Array.isArray(
+          design.technical_notes
+        )
+          ? design.technical_notes
+          : []
+      ),
+
+      "OBOWIĄZKOWE AGD: dokładnie jedna lodówka, jeden zlew, jedna płyta grzewcza, jeden piekarnik i jedna zmywarka.",
+
+      "LODÓWKA: musi być czytelnie widoczna albo jednoznacznie zabudowana w słupku 600 mm; nie może zniknąć z wizualizacji.",
+
+      "SZAFKI GÓRNE: standardowa głębokość 350 mm. Sąsiednie szafki powinny tworzyć jedną logiczną płaszczyznę frontów.",
+
+      "NAROŻNIK GÓRNY: nie stosuj przypadkowego uskoku głębokości. Nie zestawiaj szafki 350 mm z wiszącą bryłą 560–600 mm. Zastosuj poprawną szafkę narożną o spójnej głębokości albo zakończ ciąg blendą przed narożnikiem.",
+
+      "W narożniku zapewnij miejsce na pełne otwieranie frontów. Jeśli trzeba, zastosuj blendę/dystans.",
+    ];
+
+  return design;
+}
+
+
 function calculateFurnitureEstimate(
   design: KitchenDesign
 ) {
-
-  let netto =
-    21000;
 
   const text =
     JSON.stringify(
       design
     ).toLowerCase();
 
+  const modules =
+    design.modules || [];
+
   const moduleQuantity =
-    (
-      design.modules || []
-    ).reduce(
+    modules.reduce(
       (
         total,
         module
       ) =>
         total +
-        Number(
-          module.quantity || 1
+        Math.max(
+          1,
+          Number(
+            module.quantity || 1
+          )
         ),
       0
     );
 
+  /*
+    Wycena orientacyjna mebli na wymiar.
+    Baza jest celowo niższa niż w poprzedniej wersji.
+    Nie doliczamy już wysokich, stałych kwot za samo
+    wystąpienie słów takich jak "Blum", "premium" itd.
+  */
+
+  let netto =
+    6500;
+
+  // Podstawowa produkcja mebli.
   netto +=
-    moduleQuantity * 650;
+    moduleQuantity * 720;
 
-  if (
-    text.includes("premium")
-  ) {
-    netto += 4500;
-  }
+  // Zabudowa wysoka / słupki są droższe od zwykłych modułów.
+  const tallModules =
+    modules.reduce(
+      (
+        total,
+        module
+      ) => {
 
-  if (
-    text.includes("blum")
-  ) {
-    netto += 4500;
-  }
+        const moduleText =
+          JSON.stringify(
+            module
+          ).toLowerCase();
 
-  if (
-    text.includes("cargo")
-  ) {
-    netto += 2500;
-  }
+        const isTall =
+          moduleText.includes(
+            "słupek"
+          ) ||
+          moduleText.includes(
+            "slupek"
+          ) ||
+          moduleText.includes(
+            "wysok"
+          ) ||
+          moduleText.includes(
+            "lodów"
+          ) ||
+          moduleText.includes(
+            "lodow"
+          );
 
-  if (
-    text.includes("led")
-  ) {
-    netto += 1200;
-  }
+        return total +
+          (
+            isTall
+              ? Math.max(
+                  1,
+                  Number(
+                    module.quantity || 1
+                  )
+                )
+              : 0
+          );
+      },
+      0
+    );
 
-  if (
-    text.includes("spiek")
-  ) {
-    netto += 9000;
-  }
+  netto +=
+    tallModules * 550;
 
+  // Wyspa – koszt samej zabudowy, bez zawyżonej stałej 7000 zł.
   if (
     design.island?.included
   ) {
-    netto += 7000;
+    netto +=
+      2800;
+  }
+
+  // Dodatki – umiarkowane dopłaty orientacyjne.
+  if (
+    text.includes(
+      "cargo"
+    )
+  ) {
+    netto +=
+      900;
   }
 
   if (
-    text.includes("akryl")
+    text.includes(
+      "led"
+    )
   ) {
-    netto += 3500;
+    netto +=
+      600;
   }
+
+  if (
+    text.includes(
+      "akryl"
+    )
+  ) {
+    netto +=
+      1400;
+  }
+
+  if (
+    text.includes(
+      "lakier"
+    )
+  ) {
+    netto +=
+      1800;
+  }
+
+  if (
+    text.includes(
+      "fornir"
+    )
+  ) {
+    netto +=
+      2200;
+  }
+
+  if (
+    text.includes(
+      "spiek"
+    )
+  ) {
+    netto +=
+      3500;
+  }
+
+  if (
+    text.includes(
+      "kamień"
+    ) ||
+    text.includes(
+      "kamien"
+    ) ||
+    text.includes(
+      "kwarc"
+    )
+  ) {
+    netto +=
+      3000;
+  }
+
+  /*
+    Blum nie dostaje już +4500 zł tylko za nazwę.
+    Przy meblach na wymiar okucia są częścią standardowej
+    kalkulacji modułów. Dopłata zostaje tylko przy wyraźnie
+    droższych rozwiązaniach.
+  */
+  if (
+    text.includes(
+      "servo"
+    ) ||
+    text.includes(
+      "tip-on"
+    ) ||
+    text.includes(
+      "tip on"
+    )
+  ) {
+    netto +=
+      1200;
+  }
+
+  /*
+    Minimalna kwota zabezpiecza bardzo małe projekty.
+    Zaokrąglamy do pełnych 100 zł, żeby wycena wyglądała
+    jak realna wycena orientacyjna, a nie wynik kalkulatora.
+  */
+  netto =
+    Math.max(
+      netto,
+      7500
+    );
+
+  netto =
+    Math.round(
+      netto / 100
+    ) * 100;
 
   const brutto =
     Math.round(
-      netto * 1.08
-    );
+      (
+        netto * 1.08
+      ) / 100
+    ) * 100;
 
   return {
-    netto:
-      Math.round(netto),
-
+    netto,
     brutto,
   };
 }
@@ -445,6 +865,21 @@ ${design.materials.fronts}
 BLAT:
 ${design.materials.countertop}
 
+UCHWYTY / SYSTEM OTWIERANIA:
+${design.materials.handles || "do ustalenia"}
+
+WYSŁONA NAD BLATEM:
+${design.materials.backsplash || "do ustalenia"}
+
+OŚWIETLENIE:
+${
+  Array.isArray(
+    design.materials.lighting
+  )
+    ? design.materials.lighting.join(", ")
+    : design.materials.lighting || "do ustalenia"
+}
+
 WYSPA:
 ${design.island.included ? "TAK" : "NIE"}
 
@@ -464,11 +899,13 @@ Możesz teraz opisać kolejną poprawkę.
 }
 
 async function createConsultationReply({
+  openai,
   conversation,
   roomAnalysis,
   roomData,
   memory,
 }: {
+  openai: OpenAI;
   conversation: string;
   roomAnalysis: string;
   roomData: unknown;
@@ -537,6 +974,7 @@ ${conversation}
 }
 
 async function generateFloorPlan(
+  openai: OpenAI,
   design: KitchenDesign
 ): Promise<string | null> {
 
@@ -608,6 +1046,56 @@ export async function POST(
 
   try {
 
+    const openAiApiKey =
+      cleanSecret(
+        process.env
+          .OPENAI_API_KEY
+      );
+
+    /*
+     * LOCALHOST:
+     * brak lokalnego OPENAI_API_KEY -> wysyłamy żądanie
+     * do działającej funkcji /api/chat na dreamsai.pl.
+     *
+     * VERCEL:
+     * produkcja zawsze korzysta ze swojego sekretu.
+     * Jeśli zniknie on z Vercel, NIE robimy pętli proxy.
+     */
+    if (
+      !openAiApiKey
+    ) {
+
+      if (
+        process.env.VERCEL ===
+        "1"
+      ) {
+
+        return Response.json(
+          {
+            success:
+              false,
+
+            error:
+              "Brak OPENAI_API_KEY w środowisku produkcyjnym Vercel.",
+          },
+          {
+            status:
+              500,
+          }
+        );
+      }
+
+      return await proxyChatToProduction(
+        req
+      );
+    }
+
+    const openai =
+      new OpenAI({
+        apiKey:
+          openAiApiKey,
+      });
+
     const body =
       await req.json();
 
@@ -646,7 +1134,7 @@ export async function POST(
       )
         ? body.images.filter(
             (
-              image
+              image: unknown
             ): image is string =>
               typeof image ===
                 "string" &&
@@ -662,7 +1150,7 @@ export async function POST(
       )
         ? body.previousImages.filter(
             (
-              image
+              image: unknown
             ): image is string =>
               typeof image ===
                 "string" &&
@@ -777,6 +1265,7 @@ export async function POST(
 
       const reply =
         await createConsultationReply({
+          openai,
           conversation,
           roomAnalysis:
             room.roomAnalysis,
@@ -865,7 +1354,15 @@ export async function POST(
         });
     }
 
-    // 4. WALIDACJA
+    /*
+     * 4. PODSTAWOWA LOGIKA MEBLARSKA
+     */
+    design =
+      enforceBasicKitchenLogic(
+        design
+      );
+
+    // 5. WALIDACJA
 
     const validation =
       await validateKitchen({
@@ -873,12 +1370,20 @@ export async function POST(
 
         openai,
 
+        /*
+         * Przy poprawce obrazu użytkownik wskazuje konkretną zmianę.
+         * Walidacja nie może cofać tej zmiany do poprzednich wartości.
+         */
         useAiReview:
-          true,
+          isCorrection
+            ? false
+            : false,
       });
 
     const correctedDesign =
-      validation.correctedDesign;
+      isCorrection
+        ? design
+        : validation.correctedDesign;
 
     // 5. PLAN ROZMIESZCZENIA MEBLI
 
@@ -931,6 +1436,13 @@ export async function POST(
 
         previousImage,
 
+        /*
+         * Oryginalne zdjęcia klienta trafiają również
+         * bezpośrednio do renderera.
+         */
+        roomImages:
+          images,
+
         isCorrection,
 
         correctionRequest,
@@ -966,11 +1478,7 @@ export async function POST(
     // 7. RZUT 2D
 
     const floorPlan =
-      isCorrection
-        ? null
-        : await generateFloorPlan(
-            correctedDesign
-          );
+      null;
 
     // 8. WYCENA I ODPOWIEDŹ
 
@@ -1033,10 +1541,15 @@ export async function POST(
       error
     );
 
-    const message =
+    const errorMessage =
       error instanceof Error
         ? error.message
         : "Błąd AI";
+
+    const isTimeout =
+      /timeout|timed out|deadline|504/i.test(
+        errorMessage
+      );
 
     return Response.json(
       {
@@ -1044,11 +1557,15 @@ export async function POST(
           false,
 
         error:
-          message,
+          isTimeout
+            ? "Generowanie trwało zbyt długo. Spróbuj ponownie z jednym zdjęciem i krótszym opisem."
+            : errorMessage,
       },
       {
         status:
-          500,
+          isTimeout
+            ? 504
+            : 500,
       }
     );
   }

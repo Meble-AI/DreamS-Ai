@@ -49,6 +49,7 @@ export type ProjectMemory = {
     walls: unknown[];
     windows: number;
     doors: number;
+    layout: string;
     estimated_size: string;
     has_island_space: boolean;
     kitchen_type: string;

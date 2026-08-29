@@ -22,9 +22,10 @@ const plans = [
     name: "START",
     oldPrice: "39,99 zł",
     price: "19,99 zł",
-    credits: 1,
+    projects: 1,
+    credits: 3,
     description:
-      "1 projekt kuchni premium z AI",
+      "1 projekt kuchni + 2 poprawki",
     priceId:
       process.env
         .NEXT_PUBLIC_STRIPE_START_PRICE_ID || "",
@@ -33,9 +34,10 @@ const plans = [
     name: "PRO",
     oldPrice: "59,99 zł",
     price: "29,99 zł",
-    credits: 2,
+    projects: 2,
+    credits: 6,
     description:
-      "2 projekty + więcej możliwości",
+      "2 projekty kuchni + po 2 poprawki do każdego",
     priceId:
       process.env
         .NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "",
@@ -44,9 +46,10 @@ const plans = [
     name: "PREMIUM",
     oldPrice: "99,99 zł",
     price: "49,99 zł",
-    credits: 3,
+    projects: 3,
+    credits: 9,
     description:
-      "3 projekty premium + pełna swoboda",
+      "3 projekty kuchni + po 2 poprawki do każdego",
     priceId:
       process.env
         .NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || "",
@@ -82,72 +85,117 @@ export default function PricingPage() {
       async (
         priceId: string,
         planName: string,
-        accessToken: string
-      ) => {
+        accessToken: string,
+        allowRefresh = true
+      ): Promise<boolean> => {
         try {
           setLoadingPlan(planName);
 
-          const res = await fetch(
-            "/api/checkout",
-            {
-              method: "POST",
+          const res =
+            await fetch(
+              "/api/checkout",
+              {
+                method:
+                  "POST",
 
-              headers: {
-                "Content-Type":
-                  "application/json",
+                headers: {
+                  "Content-Type":
+                    "application/json",
 
-                Authorization:
-                  `Bearer ${accessToken}`,
-              },
+                  Authorization:
+                    `Bearer ${accessToken}`,
+                },
 
-              body: JSON.stringify({
-                priceId,
-                planName,
-              }),
-            }
-          );
+                body:
+                  JSON.stringify({
+                    priceId,
+                    planName,
+                  }),
+              }
+            );
 
           let data: {
             url?: string;
             error?: string;
-          };
+          } = {};
 
           try {
-            data = await res.json();
+            data =
+              await res.json();
           } catch {
             alert(
               "Serwer zwrócił nieprawidłową odpowiedź. Spróbuj ponownie."
             );
 
-            return;
+            return false;
           }
 
-          if (res.status === 401) {
+          /*
+            Jeżeli token wygasł, najpierw odświeżamy
+            sesję po cichu i ponawiamy płatność.
+            Nie przekierowujemy od razu do logowania.
+          */
+          if (
+            res.status === 401 &&
+            allowRefresh
+          ) {
+            const {
+              data:
+                refreshData,
+              error:
+                refreshError,
+            } =
+              await supabase
+                .auth
+                .refreshSession();
+
+            const refreshedToken =
+              refreshData
+                .session
+                ?.access_token;
+
+            if (
+              !refreshError &&
+              refreshedToken
+            ) {
+              return await createStripeCheckout(
+                priceId,
+                planName,
+                refreshedToken,
+                false
+              );
+            }
+          }
+
+          if (
+            res.status === 401
+          ) {
             savePendingCheckout(
               priceId,
               planName
             );
 
-            await supabase.auth.signOut();
-
             alert(
-              "Twoja sesja wygasła. Zaloguj się ponownie."
+              data.error ||
+              "Sesja logowania wygasła. Zaloguj się ponownie, a wybrany pakiet zostanie zachowany."
             );
 
-            router.replace(
-              "/login?redirect=/pricing"
+            router.push(
+              `/login?redirect=${encodeURIComponent(
+                "/pricing?resumeCheckout=1"
+              )}`
             );
 
-            return;
+            return false;
           }
 
           if (!res.ok) {
             alert(
               data.error ||
-                "Nie udało się rozpocząć płatności."
+              "Nie udało się rozpocząć płatności."
             );
 
-            return;
+            return false;
           }
 
           if (!data.url) {
@@ -155,16 +203,22 @@ export default function PricingPage() {
               "Stripe nie zwrócił adresu płatności."
             );
 
-            return;
+            return false;
           }
 
           localStorage.removeItem(
             PENDING_CHECKOUT_KEY
           );
 
-          window.location.href =
-            data.url;
-        } catch (err) {
+          window.location.assign(
+            data.url
+          );
+
+          return true;
+
+        } catch (
+          err
+        ) {
           console.error(
             "CHECKOUT ERROR:",
             err
@@ -173,8 +227,13 @@ export default function PricingPage() {
           alert(
             "Wystąpił błąd podczas uruchamiania płatności."
           );
+
+          return false;
+
         } finally {
-          setLoadingPlan(null);
+          setLoadingPlan(
+            null
+          );
         }
       },
       [router]
@@ -184,26 +243,75 @@ export default function PricingPage() {
     priceId: string,
     planName: string
   ) {
+    if (!priceId) {
+      alert(
+        "Brak Stripe Price ID. Sprawdź zmienne środowiskowe."
+      );
+
+      return;
+    }
+
     try {
-      if (!priceId) {
-        alert(
-          "Brak Stripe Price ID. Sprawdź zmienne środowiskowe."
-        );
+      setLoadingPlan(
+        planName
+      );
 
-        return;
-      }
-
-      setLoadingPlan(planName);
-
+      /*
+        Najpierw odświeżamy sesję. Dzięki temu
+        do API trafia aktualny token, a nie token
+        zapisany wcześniej w przeglądarce.
+      */
       const {
-        data: { session },
-        error: sessionError,
+        data:
+          refreshData,
+        error:
+          refreshError,
       } =
-        await supabase.auth.getSession();
+        await supabase
+          .auth
+          .refreshSession();
+
+      let session =
+        refreshData.session;
 
       if (
-        sessionError ||
-        !session?.access_token ||
+        refreshError ||
+        !session
+      ) {
+        const {
+          data:
+            sessionData,
+          error:
+            sessionError,
+        } =
+          await supabase
+            .auth
+            .getSession();
+
+        if (
+          sessionError ||
+          !sessionData.session
+        ) {
+          savePendingCheckout(
+            priceId,
+            planName
+          );
+
+          router.push(
+            `/login?redirect=${encodeURIComponent(
+              "/pricing?resumeCheckout=1"
+            )}`
+          );
+
+          return;
+        }
+
+        session =
+          sessionData.session;
+      }
+
+      if (
+        !session.access_token ||
         !session.user
       ) {
         savePendingCheckout(
@@ -212,7 +320,9 @@ export default function PricingPage() {
         );
 
         router.push(
-          "/login?redirect=/pricing"
+          `/login?redirect=${encodeURIComponent(
+            "/pricing?resumeCheckout=1"
+          )}`
         );
 
         return;
@@ -223,7 +333,10 @@ export default function PricingPage() {
         planName,
         session.access_token
       );
-    } catch (err) {
+
+    } catch (
+      err
+    ) {
       console.error(
         "SESSION CHECK ERROR:",
         err
@@ -232,11 +345,10 @@ export default function PricingPage() {
       alert(
         "Nie udało się sprawdzić konta użytkownika."
       );
+
     } finally {
-      setLoadingPlan((currentPlan) =>
-        currentPlan === planName
-          ? null
-          : currentPlan
+      setLoadingPlan(
+        null
       );
     }
   }
@@ -247,12 +359,34 @@ export default function PricingPage() {
         return;
       }
 
+      const params =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      const shouldResume =
+        params.get(
+          "resumeCheckout"
+        ) === "1";
+
+      // Nie uruchamiamy płatności automatycznie
+      // podczas zwykłego wejścia na cennik.
+      if (!shouldResume) {
+        return;
+      }
+
       const savedCheckout =
         localStorage.getItem(
           PENDING_CHECKOUT_KEY
         );
 
       if (!savedCheckout) {
+        window.history.replaceState(
+          {},
+          "",
+          "/pricing"
+        );
+
         return;
       }
 
@@ -262,10 +396,18 @@ export default function PricingPage() {
 
       try {
         pendingCheckout =
-          JSON.parse(savedCheckout);
+          JSON.parse(
+            savedCheckout
+          );
       } catch {
         localStorage.removeItem(
           PENDING_CHECKOUT_KEY
+        );
+
+        window.history.replaceState(
+          {},
+          "",
+          "/pricing"
         );
 
         return;
@@ -279,19 +421,80 @@ export default function PricingPage() {
           PENDING_CHECKOUT_KEY
         );
 
+        window.history.replaceState(
+          {},
+          "",
+          "/pricing"
+        );
+
         return;
       }
 
       const {
-        data: { session },
+        data:
+          refreshData,
+        error:
+          refreshError,
       } =
-        await supabase.auth.getSession();
+        await supabase
+          .auth
+          .refreshSession();
 
-      if (!session?.access_token) {
+      let session =
+        refreshData.session;
+
+      if (
+        refreshError ||
+        !session
+      ) {
+        const {
+          data:
+            sessionData,
+          error:
+            sessionError,
+        } =
+          await supabase
+            .auth
+            .getSession();
+
+        if (
+          sessionError ||
+          !sessionData.session
+        ) {
+          window.location.href =
+            `/login?redirect=${encodeURIComponent(
+              "/pricing?resumeCheckout=1"
+            )}`;
+
+          return;
+        }
+
+        session =
+          sessionData.session;
+      }
+
+      if (
+        !session.access_token ||
+        !session.user
+      ) {
+        window.location.href =
+          `/login?redirect=${encodeURIComponent(
+            "/pricing?resumeCheckout=1"
+          )}`;
+
         return;
       }
 
-      resumedCheckout.current = true;
+      resumedCheckout.current =
+        true;
+
+      // Usuwamy parametr z adresu, aby odświeżenie
+      // strony nie uruchamiało checkoutu ponownie.
+      window.history.replaceState(
+        {},
+        "",
+        "/pricing"
+      );
 
       await createStripeCheckout(
         pendingCheckout.priceId,
@@ -322,8 +525,8 @@ export default function PricingPage() {
           </h1>
 
           <p className="mt-6 text-lg leading-8 text-gray-400">
-            Każdy pakiet daje dostęp do projektowania wnętrz z AI, historii
-            wersji, poprawek oraz pobierania wizualizacji.
+            Każdy projekt obejmuje pierwszą wizualizację oraz 2 poprawki.
+            Rozmowa z projektantem AI przed wygenerowaniem wizualizacji nie zużywa kredytu.
           </p>
         </div>
 
@@ -392,7 +595,7 @@ export default function PricingPage() {
                   </div>
 
                   <div className="mt-1 text-3xl font-black text-[#f0c56e]">
-                    {plan.credits}
+                    {plan.projects}
                   </div>
                 </div>
 
@@ -403,7 +606,7 @@ export default function PricingPage() {
                 <div className="mt-7 space-y-4">
                   {[
                     "Fotorealistyczna wizualizacja AI",
-                    "Możliwość wprowadzania poprawek",
+                    "2 poprawki do każdego projektu",
                     "Historia wersji projektu",
                     "Pobieranie wizualizacji",
                     "Szacunkowa wycena",
@@ -512,11 +715,11 @@ export default function PricingPage() {
             {[
               {
                 q: "Czy płatność jest jednorazowa?",
-                a: "Tak. Każdy pakiet to jednorazowy zakup określonej liczby projektów.",
+                a: "Tak. Każdy pakiet to jednorazowy zakup określonej liczby projektów. Każdy projekt obejmuje pierwszą wizualizację i 2 poprawki.",
               },
               {
                 q: "Czy muszę mieć konto?",
-                a: "Tak. Konto jest potrzebne do zapisania kredytów i historii projektów.",
+                a: "Tak. Konto jest potrzebne do zapisania kredytów, projektów i historii poprawek.",
               },
               {
                 q: "Czy mogę poprawiać projekt?",
