@@ -109,11 +109,18 @@ async function proxyChatToProduction(
     "application/json"
   );
 
-  /*
-   * Lokalny frontend nie dostaje żadnego sekretu OpenAI.
-   * Żądanie wykonuje produkcyjna funkcja Vercel,
-   * która ma już OPENAI_API_KEY.
-   */
+  const authorization =
+    req.headers.get(
+      "authorization"
+    );
+
+  if (authorization) {
+    headers.set(
+      "authorization",
+      authorization
+    );
+  }
+
   const response =
     await fetch(
       targetUrl,
@@ -166,6 +173,65 @@ async function proxyChatToProduction(
         responseHeaders,
     }
   );
+}
+
+async function callCreditsApi(
+  req: Request,
+  method: "GET" | "POST"
+) {
+  const authorization =
+    req.headers.get(
+      "authorization"
+    );
+
+  if (!authorization) {
+    return {
+      ok: false,
+      status: 401,
+      data: {
+        success: false,
+        error: "Musisz być zalogowany, aby generować projekty.",
+      },
+    };
+  }
+
+  const response =
+    await fetch(
+      new URL(
+        "/api/credits/consume",
+        req.url
+      ),
+      {
+        method,
+        headers: {
+          authorization,
+          ...(method === "POST"
+            ? {
+                "content-type": "application/json",
+              }
+            : {}),
+        },
+        body:
+          method === "POST"
+            ? JSON.stringify({ amount: 1 })
+            : undefined,
+        cache: "no-store",
+      }
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(() => ({
+        success: false,
+        error: "Nie udało się sprawdzić kredytów.",
+      }));
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    data,
+  };
 }
 
 type HistoryItem = {
@@ -371,7 +437,6 @@ function memoryToDesign(
   };
 }
 
-
 function enforceBasicKitchenLogic(
   inputDesign: KitchenDesign
 ): KitchenDesign {
@@ -530,19 +595,14 @@ function enforceBasicKitchenLogic(
       ),
 
       "OBOWIĄZKOWE AGD: dokładnie jedna lodówka, jeden zlew, jedna płyta grzewcza, jeden piekarnik i jedna zmywarka.",
-
       "LODÓWKA: musi być czytelnie widoczna albo jednoznacznie zabudowana w słupku 600 mm; nie może zniknąć z wizualizacji.",
-
       "SZAFKI GÓRNE: standardowa głębokość 350 mm. Sąsiednie szafki powinny tworzyć jedną logiczną płaszczyznę frontów.",
-
       "NAROŻNIK GÓRNY: nie stosuj przypadkowego uskoku głębokości. Nie zestawiaj szafki 350 mm z wiszącą bryłą 560–600 mm. Zastosuj poprawną szafkę narożną o spójnej głębokości albo zakończ ciąg blendą przed narożnikiem.",
-
       "W narożniku zapewnij miejsce na pełne otwieranie frontów. Jeśli trzeba, zastosuj blendę/dystans.",
     ];
 
   return design;
 }
-
 
 function calculateFurnitureEstimate(
   design: KitchenDesign
@@ -572,21 +632,12 @@ function calculateFurnitureEstimate(
       0
     );
 
-  /*
-    Wycena orientacyjna mebli na wymiar.
-    Baza jest celowo niższa niż w poprzedniej wersji.
-    Nie doliczamy już wysokich, stałych kwot za samo
-    wystąpienie słów takich jak "Blum", "premium" itd.
-  */
-
   let netto =
     6500;
 
-  // Podstawowa produkcja mebli.
   netto +=
     moduleQuantity * 720;
 
-  // Zabudowa wysoka / słupki są droższe od zwykłych modułów.
   const tallModules =
     modules.reduce(
       (
@@ -634,7 +685,6 @@ function calculateFurnitureEstimate(
   netto +=
     tallModules * 550;
 
-  // Wyspa – koszt samej zabudowy, bez zawyżonej stałej 7000 zł.
   if (
     design.island?.included
   ) {
@@ -642,7 +692,6 @@ function calculateFurnitureEstimate(
       2800;
   }
 
-  // Dodatki – umiarkowane dopłaty orientacyjne.
   if (
     text.includes(
       "cargo"
@@ -712,12 +761,6 @@ function calculateFurnitureEstimate(
       3000;
   }
 
-  /*
-    Blum nie dostaje już +4500 zł tylko za nazwę.
-    Przy meblach na wymiar okucia są częścią standardowej
-    kalkulacji modułów. Dopłata zostaje tylko przy wyraźnie
-    droższych rozwiązaniach.
-  */
   if (
     text.includes(
       "servo"
@@ -733,11 +776,6 @@ function calculateFurnitureEstimate(
       1200;
   }
 
-  /*
-    Minimalna kwota zabezpiecza bardzo małe projekty.
-    Zaokrąglamy do pełnych 100 zł, żeby wycena wyglądała
-    jak realna wycena orientacyjna, a nie wynik kalkulatora.
-  */
   netto =
     Math.max(
       netto,
@@ -924,7 +962,7 @@ async function createConsultationReply({
             "system",
 
           content: `
-Jesteś projektantem kuchni Projektuj AI.
+Jesteś projektantem kuchni DreamS AI.
 
 Rozmawiaj z klientem konkretnie i po polsku.
 Zadawaj najwyżej 1–3 najważniejsze pytania naraz.
@@ -1052,15 +1090,6 @@ export async function POST(
           .OPENAI_API_KEY
       );
 
-    /*
-     * LOCALHOST:
-     * brak lokalnego OPENAI_API_KEY -> wysyłamy żądanie
-     * do działającej funkcji /api/chat na dreamsai.pl.
-     *
-     * VERCEL:
-     * produkcja zawsze korzysta ze swojego sekretu.
-     * Jeśli zniknie on z Vercel, NIE robimy pętli proxy.
-     */
     if (
       !openAiApiKey
     ) {
@@ -1186,8 +1215,6 @@ export async function POST(
         message
       );
 
-    // 1. ANALIZA POMIESZCZENIA
-
     const room =
       images.length > 0
         ? await analyzeRoom({
@@ -1259,8 +1286,6 @@ export async function POST(
         images
       );
 
-    // 2. KONSULTACJA
-
     if (!generateProject) {
 
       const reply =
@@ -1298,7 +1323,40 @@ export async function POST(
       });
     }
 
-    // 3. PROJEKT LUB POPRAWKA
+    const creditStatus =
+      await callCreditsApi(
+        req,
+        "GET"
+      );
+
+    if (
+      !creditStatus.ok ||
+      Number(
+        creditStatus.data?.credits ||
+        0
+      ) <= 0
+    ) {
+
+      return Response.json(
+        {
+          success: false,
+          error:
+            creditStatus.data?.error ||
+            "Brak kredytów. Kup pakiet, aby wygenerować kolejną wersję projektu.",
+          credits:
+            Number(
+              creditStatus.data?.credits ||
+              0
+            ),
+        },
+        {
+          status:
+            creditStatus.status === 401
+              ? 401
+              : 402,
+        }
+      );
+    }
 
     let design:
       KitchenDesign;
@@ -1354,15 +1412,10 @@ export async function POST(
         });
     }
 
-    /*
-     * 4. PODSTAWOWA LOGIKA MEBLARSKA
-     */
     design =
       enforceBasicKitchenLogic(
         design
       );
-
-    // 5. WALIDACJA
 
     const validation =
       await validateKitchen({
@@ -1370,22 +1423,14 @@ export async function POST(
 
         openai,
 
-        /*
-         * Przy poprawce obrazu użytkownik wskazuje konkretną zmianę.
-         * Walidacja nie może cofać tej zmiany do poprzednich wartości.
-         */
         useAiReview:
-          isCorrection
-            ? false
-            : false,
+          false,
       });
 
     const correctedDesign =
       isCorrection
         ? design
         : validation.correctedDesign;
-
-    // 5. PLAN ROZMIESZCZENIA MEBLI
 
     const furniturePlan =
       furniturePlanner({
@@ -1394,8 +1439,6 @@ export async function POST(
 
         room,
       });
-
-    // 6. PAMIĘĆ PROJEKTU
 
     const memory =
       createProjectMemory({
@@ -1421,8 +1464,6 @@ export async function POST(
         memory
       );
 
-    // 6. RENDER
-
     const render =
       await renderKitchen({
         openai,
@@ -1436,10 +1477,6 @@ export async function POST(
 
         previousImage,
 
-        /*
-         * Oryginalne zdjęcia klienta trafiają również
-         * bezpośrednio do renderera.
-         */
         roomImages:
           images,
 
@@ -1475,12 +1512,36 @@ export async function POST(
       );
     }
 
-    // 7. RZUT 2D
+    const creditCharge =
+      await callCreditsApi(
+        req,
+        "POST"
+      );
+
+    if (!creditCharge.ok) {
+
+      return Response.json(
+        {
+          success: false,
+          error:
+            creditCharge.data?.error ||
+            "Nie udało się rozliczyć kredytu za wygenerowaną wersję projektu.",
+          credits:
+            Number(
+              creditCharge.data?.credits ||
+              0
+            ),
+        },
+        {
+          status:
+            creditCharge.status ||
+            500,
+        }
+      );
+    }
 
     const floorPlan =
       null;
-
-    // 8. WYCENA I ODPOWIEDŹ
 
     const estimate =
       calculateFurnitureEstimate(
@@ -1530,6 +1591,12 @@ export async function POST(
 
       memory:
         responseMemory,
+
+      credits:
+        Number(
+          creditCharge.data?.credits ||
+          0
+        ),
     });
 
   } catch (
