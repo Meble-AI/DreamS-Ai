@@ -2,26 +2,38 @@ export const runtime = "nodejs";
 
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
-  throw new Error("Brak konfiguracji Supabase dla API kredytów.");
-}
-
-const admin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-  },
-});
-
 type ConsumeCreditBody = {
   amount?: number;
 };
+
+function getSupabaseConfig() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseServiceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+    throw new Error("Brak konfiguracji Supabase dla API kredytów.");
+  }
+
+  return {
+    supabaseUrl,
+    supabaseAnonKey,
+    supabaseServiceRoleKey,
+  };
+}
+
+function getAdminClient() {
+  const { supabaseUrl, supabaseServiceRoleKey } = getSupabaseConfig();
+
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
 
 async function getAuthenticatedUser(req: Request) {
   const authorization = req.headers.get("authorization");
@@ -48,7 +60,9 @@ async function getAuthenticatedUser(req: Request) {
     };
   }
 
-  const authClient = createClient(supabaseUrl!, supabaseAnonKey!, {
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();
+
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -81,6 +95,8 @@ async function getAuthenticatedUser(req: Request) {
 }
 
 async function getCredits(email: string) {
+  const admin = getAdminClient();
+
   const { data: profile, error: profileError } = await admin
     .from("profiles")
     .select("credits")
@@ -143,6 +159,7 @@ export async function POST(req: Request) {
     }
 
     const email = auth.user.email;
+    const admin = getAdminClient();
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const currentCredits = await getCredits(email);
