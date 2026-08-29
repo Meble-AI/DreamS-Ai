@@ -84,20 +84,6 @@ const configuredSupabaseAnonKey =
       .NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 
-/*
- * W DEVELOPMENT nie wymagamy lokalnych kluczy Supabase.
- *
- * Przeglądarka łączy się z:
- *   localhost/api/supabase/...
- *
- * Lokalny route przekazuje żądania do dreamsai.pl,
- * a produkcyjny route dopiero do prawdziwego Supabase.
- *
- * Dzięki temu:
- * - localhost działa bez .env.local,
- * - produkcja nadal używa własnych zmiennych Vercel,
- * - żaden sekret serwerowy nie trafia do przeglądarki.
- */
 const useLocalSupabaseProxy =
   process.env.NODE_ENV !==
     "production" &&
@@ -153,3 +139,185 @@ export const supabase =
       },
     }
   );
+
+/*
+ * Ochrona przepływu kredytów:
+ *
+ * 1. Wszystkie wywołania /api/chat dostają automatycznie JWT
+ *    aktualnie zalogowanego użytkownika. Dzięki temu API może
+ *    sprawdzić saldo i rozliczyć kredyt po stronie serwera.
+ *
+ * 2. Stary dashboard nadal ma historyczny kod wykonujący
+ *    PATCH profiles.credits po wygenerowaniu projektu.
+ *    Taki zapis blokujemy w przeglądarce, aby nie naliczać
+ *    kredytu drugi raz. Jedynym miejscem rozliczającym kredyt
+ *    jest teraz /api/credits/consume po stronie serwera.
+ */
+if (
+  typeof window !==
+  "undefined"
+) {
+  const patchedWindow =
+    window as Window & {
+      __dreamsAiFetchPatched?: boolean;
+    };
+
+  if (
+    !patchedWindow
+      .__dreamsAiFetchPatched
+  ) {
+    const originalFetch =
+      window.fetch.bind(
+        window
+      );
+
+    window.fetch =
+      async (
+        input:
+          RequestInfo |
+          URL,
+        init?:
+          RequestInit
+      ) => {
+        const requestUrl =
+          typeof input ===
+          "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+
+        const method =
+          String(
+            init?.method ||
+            (
+              input instanceof Request
+                ? input.method
+                : "GET"
+            )
+          ).toUpperCase();
+
+        const isChatRequest =
+          requestUrl ===
+            "/api/chat" ||
+          requestUrl.endsWith(
+            "/api/chat"
+          );
+
+        if (
+          isChatRequest &&
+          method === "POST"
+        ) {
+          const {
+            data: sessionData,
+          } =
+            await supabase.auth
+              .getSession();
+
+          const accessToken =
+            sessionData.session
+              ?.access_token;
+
+          const headers =
+            new Headers(
+              init?.headers ||
+              (
+                input instanceof Request
+                  ? input.headers
+                  : undefined
+              )
+            );
+
+          if (accessToken) {
+            headers.set(
+              "authorization",
+              `Bearer ${accessToken}`
+            );
+          }
+
+          return originalFetch(
+            input,
+            {
+              ...init,
+              headers,
+            }
+          );
+        }
+
+        const isProfilesRequest =
+          /\/rest\/v1\/profiles(?:\?|$)/.test(
+            requestUrl
+          ) ||
+          /\/api\/supabase\/rest\/v1\/profiles(?:\?|$)/.test(
+            requestUrl
+          );
+
+        if (
+          isProfilesRequest &&
+          method === "PATCH"
+        ) {
+          let bodyText =
+            "";
+
+          if (
+            typeof init?.body ===
+            "string"
+          ) {
+            bodyText =
+              init.body;
+          }
+
+          let changesCredits =
+            false;
+
+          try {
+            const parsed =
+              bodyText
+                ? JSON.parse(
+                    bodyText
+                  )
+                : null;
+
+            changesCredits =
+              Boolean(
+                parsed &&
+                typeof parsed ===
+                  "object" &&
+                "credits" in parsed
+              );
+          } catch {
+            changesCredits =
+              bodyText.includes(
+                '"credits"'
+              );
+          }
+
+          if (changesCredits) {
+            console.warn(
+              "Zablokowano bezpośrednią zmianę credits po stronie klienta."
+            );
+
+            return new Response(
+              null,
+              {
+                status: 204,
+                headers: {
+                  "cache-control":
+                    "no-store",
+                },
+              }
+            );
+          }
+        }
+
+        return originalFetch(
+          input,
+          init
+        );
+      };
+
+    patchedWindow
+      .__dreamsAiFetchPatched =
+      true;
+  }
+}
