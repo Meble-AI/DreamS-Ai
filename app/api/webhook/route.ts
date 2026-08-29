@@ -99,7 +99,7 @@ function getPlanForPrice(
         "START",
 
       credits:
-        9,
+        3,
     };
   }
 
@@ -127,7 +127,7 @@ function getPlanForPrice(
         "PREMIUM",
 
       credits:
-        3,
+        9,
     };
   }
 
