@@ -23,47 +23,113 @@ type ConsumeCreditBody = {
   amount?: number;
 };
 
-export async function POST(req: Request) {
-  try {
-    const authorization = req.headers.get("authorization");
+async function getAuthenticatedUser(req: Request) {
+  const authorization = req.headers.get("authorization");
 
-    if (!authorization?.startsWith("Bearer ")) {
-      return Response.json(
+  if (!authorization?.startsWith("Bearer ")) {
+    return {
+      error: Response.json(
         { success: false, error: "Brak sesji użytkownika." },
         { status: 401 }
-      );
-    }
+      ),
+      user: null,
+    };
+  }
 
-    const accessToken = authorization.replace("Bearer ", "").trim();
+  const accessToken = authorization.replace("Bearer ", "").trim();
 
-    if (!accessToken) {
-      return Response.json(
+  if (!accessToken) {
+    return {
+      error: Response.json(
         { success: false, error: "Brak ważnego tokenu użytkownika." },
         { status: 401 }
-      );
-    }
+      ),
+      user: null,
+    };
+  }
 
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
+  const authClient = createClient(supabaseUrl!, supabaseAnonKey!, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
       },
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
-    });
+    },
+  });
 
-    const { data: userData, error: userError } =
-      await authClient.auth.getUser(accessToken);
+  const { data: userData, error: userError } =
+    await authClient.auth.getUser(accessToken);
 
-    if (userError || !userData.user?.email) {
-      return Response.json(
+  if (userError || !userData.user?.email) {
+    return {
+      error: Response.json(
         { success: false, error: "Sesja wygasła. Zaloguj się ponownie." },
         { status: 401 }
-      );
+      ),
+      user: null,
+    };
+  }
+
+  return {
+    error: null,
+    user: userData.user,
+  };
+}
+
+async function getCredits(email: string) {
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("credits")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (profileError) {
+    throw new Error(profileError.message);
+  }
+
+  return Number(profile?.credits || 0);
+}
+
+export async function GET(req: Request) {
+  try {
+    const auth = await getAuthenticatedUser(req);
+
+    if (auth.error || !auth.user?.email) {
+      return auth.error!;
+    }
+
+    const credits = await getCredits(auth.user.email);
+
+    return Response.json({
+      success: true,
+      credits,
+    });
+  } catch (error: unknown) {
+    console.error("CREDIT STATUS ERROR:", error);
+
+    return Response.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Nie udało się sprawdzić salda kredytów.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const auth = await getAuthenticatedUser(req);
+
+    if (auth.error || !auth.user?.email) {
+      return auth.error!;
     }
 
     const body = (await req.json().catch(() => ({}))) as ConsumeCreditBody;
@@ -76,21 +142,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const email = userData.user.email;
+    const email = auth.user.email;
 
-    // Compare-and-swap ogranicza ryzyko podwójnego zapisu przy równoległych żądaniach.
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const { data: profile, error: profileError } = await admin
-        .from("profiles")
-        .select("credits")
-        .eq("email", email)
-        .maybeSingle();
-
-      if (profileError) {
-        throw new Error(profileError.message);
-      }
-
-      const currentCredits = Number(profile?.credits || 0);
+      const currentCredits = await getCredits(email);
 
       if (currentCredits < 1) {
         return Response.json(
