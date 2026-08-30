@@ -1022,19 +1022,6 @@ async function saveProject(
           : message
       ).trim();
 
-    if (
-      credits <= 0
-    ) {
-
-      alert(
-        "Brak kredytów 🙂 Kup pakiet aby generować projekty."
-      );
-
-      window.location.href =
-        "/pricing";
-
-      return;
-    }
 
     if (
       !outgoingMessage
@@ -1172,6 +1159,12 @@ async function saveProject(
         );
       }
 
+      const { data: sessionData } =
+        await supabase.auth.getSession();
+
+      const accessToken =
+        sessionData.session?.access_token;
+
       const res =
         await fetch(
           "/api/chat",
@@ -1183,6 +1176,9 @@ async function saveProject(
             headers: {
               "Content-Type":
                 "application/json",
+              ...(accessToken
+                ? { Authorization: `Bearer ${accessToken}` }
+                : {}),
             },
 
             body:
@@ -1338,62 +1334,10 @@ async function saveProject(
           )
         );
 
-      const shouldConsumeCredit =
-        generatedVisualization &&
-        !isCorrection;
-
-      const newCredits =
-        shouldConsumeCredit
-          ? Math.max(
-              credits - 1,
-              0
-            )
-          : credits;
-
-      if (
-        shouldConsumeCredit
-      ) {
-
-        setCredits(
-          newCredits
-        );
-
-        try {
-
-          const {
-
-            data: { user },
-
-          } =
-            await supabase.auth.getUser();
-
-          if (user?.email) {
-
-            await supabase
-
-              .from("profiles")
-
-              .update({
-
-                credits:
-                  newCredits,
-              })
-
-              .eq(
-                "email",
-                user.email
-              );
-          }
-
-        } catch (creditError) {
-
-          console.log(
-            creditError
-          );
-        }
+      if (typeof data.credits === "number") {
+        setCredits(data.credits);
       }
-
-      try {
+try {
 
         await saveProject(
 
