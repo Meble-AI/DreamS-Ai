@@ -5,16 +5,12 @@ import {
   SupabaseClient,
 } from "@supabase/supabase-js";
 
-type ConsumeCreditBody = {
-  amount?: number;
-};
-
 function cleanEnvironmentValue(
   value: string | undefined
 ): string {
   return String(value || "")
     .trim()
-    .replace(/^["']|["']$/g, "");
+    .replace(/^[\"']|[\"']$/g, "");
 }
 
 function normalizeSupabaseUrl(
@@ -36,15 +32,19 @@ function normalizeSupabaseUrl(
       new URL(rawValue);
   } catch {
     throw new Error(
-      "Nieprawidłowy adres Supabase."
+      "Adres Supabase jest nieprawidłowy."
     );
   }
 
   if (
-    parsedUrl.protocol !== "https:"
+    parsedUrl.protocol !==
+      "https:" ||
+    !parsedUrl.hostname.endsWith(
+      ".supabase.co"
+    )
   ) {
     throw new Error(
-      "Adres Supabase musi używać HTTPS."
+      "Adres Supabase musi mieć format https://xxxxx.supabase.co."
     );
   }
 
@@ -52,50 +52,43 @@ function normalizeSupabaseUrl(
 }
 
 function getSupabaseConfig() {
-  const rawSupabaseUrl =
-    cleanEnvironmentValue(
-      process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  const supabaseUrl =
+    normalizeSupabaseUrl(
+      process.env
+        .NEXT_PUBLIC_SUPABASE_URL ||
         process.env.SUPABASE_URL
     );
 
   const supabaseAnonKey =
     cleanEnvironmentValue(
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      process.env
+        .NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
 
   const supabaseServiceRoleKey =
     cleanEnvironmentValue(
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env
+        .SUPABASE_SERVICE_ROLE_KEY ||
         process.env.SUPABASE_KEY ||
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        process.env
+          .NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
-
-  if (!rawSupabaseUrl) {
-    throw new Error(
-      "Brak adresu Supabase dla API kredytów."
-    );
-  }
 
   if (!supabaseAnonKey) {
     throw new Error(
-      "Brak klucza publicznego Supabase dla API kredytów."
+      "Brak NEXT_PUBLIC_SUPABASE_ANON_KEY."
     );
   }
 
   if (!supabaseServiceRoleKey) {
     throw new Error(
-      "Brak klucza Supabase dla weryfikacji sesji."
+      "Brak klucza Supabase do autoryzacji."
     );
   }
 
   return {
-    supabaseUrl:
-      normalizeSupabaseUrl(
-        rawSupabaseUrl
-      ),
-
+    supabaseUrl,
     supabaseAnonKey,
-
     supabaseServiceRoleKey,
   };
 }
@@ -149,149 +142,98 @@ function getUserClient(
   );
 }
 
-function getAccessToken(
+function getBearerToken(
   req: Request
-): string | null {
+): string {
   const authorization =
     req.headers.get(
       "authorization"
-    );
-
-  if (!authorization) {
-    return null;
-  }
-
-  const [scheme, token] =
-    authorization.split(" ");
+    ) || "";
 
   if (
-    scheme?.toLowerCase() !==
-      "bearer" ||
-    !token?.trim()
+    !authorization
+      .toLowerCase()
+      .startsWith("bearer ")
   ) {
-    return null;
+    return "";
   }
 
-  return token.trim();
+  return authorization
+    .slice(7)
+    .trim();
 }
 
 async function getAuthenticatedUser(
   req: Request
 ) {
   const accessToken =
-    getAccessToken(req);
+    getBearerToken(req);
 
   if (!accessToken) {
     return {
       error:
-        Response.json(
-          {
-            success: false,
-            error:
-              "Brak sesji użytkownika.",
-          },
-          {
-            status: 401,
-          }
-        ),
-
+        "Brak sesji użytkownika.",
       user: null,
-      accessToken: null,
+      accessToken: "",
     };
   }
 
-  const authClient =
-    getAuthClient();
+  try {
+    const authClient =
+      getAuthClient();
 
-  const {
-    data,
-    error,
-  } =
-    await authClient.auth.getUser(
-      accessToken
-    );
+    const {
+      data,
+      error,
+    } =
+      await authClient.auth.getUser(
+        accessToken
+      );
 
-  if (error) {
+    if (
+      error ||
+      !data.user
+    ) {
+      console.error(
+        "SUPABASE AUTH VALIDATION ERROR:",
+        error?.message ||
+          "Brak użytkownika"
+      );
+
+      return {
+        error:
+          "Sesja wygasła. Zaloguj się ponownie.",
+        user: null,
+        accessToken: "",
+      };
+    }
+
+    return {
+      error: null,
+      user: data.user,
+      accessToken,
+    };
+  } catch (error) {
     console.error(
       "SUPABASE AUTH VALIDATION ERROR:",
-      error.message
+      error instanceof Error
+        ? error.message
+        : error
     );
 
     return {
       error:
-        Response.json(
-          {
-            success: false,
-            error:
-              "Sesja wygasła. Zaloguj się ponownie.",
-          },
-          {
-            status: 401,
-          }
-        ),
-
+        "Nie udało się zweryfikować sesji użytkownika.",
       user: null,
-      accessToken: null,
+      accessToken: "",
     };
   }
-
-  if (!data.user) {
-    console.error(
-      "SUPABASE AUTH VALIDATION ERROR: brak użytkownika dla tokenu."
-    );
-
-    return {
-      error:
-        Response.json(
-          {
-            success: false,
-            error:
-              "Sesja wygasła. Zaloguj się ponownie.",
-          },
-          {
-            status: 401,
-          }
-        ),
-
-      user: null,
-      accessToken: null,
-    };
-  }
-
-  if (!data.user.email) {
-    console.error(
-      "SUPABASE AUTH VALIDATION ERROR: użytkownik nie ma adresu e-mail."
-    );
-
-    return {
-      error:
-        Response.json(
-          {
-            success: false,
-            error:
-              "Konto użytkownika nie ma przypisanego adresu e-mail.",
-          },
-          {
-            status: 401,
-          }
-        ),
-
-      user: null,
-      accessToken: null,
-    };
-  }
-
-  return {
-    error: null,
-    user: data.user,
-    accessToken,
-  };
 }
 
 async function getCredits(
   supabase: SupabaseClient,
   email: string
-) {
+): Promise<number> {
   const {
     data: profile,
     error: profileError,
@@ -299,7 +241,10 @@ async function getCredits(
     await supabase
       .from("profiles")
       .select("credits")
-      .eq("email", email)
+      .eq(
+        "email",
+        email
+      )
       .maybeSingle();
 
   if (profileError) {
@@ -340,10 +285,40 @@ export async function GET(
 
     if (
       auth.error ||
-      !auth.user?.email ||
+      !auth.user ||
       !auth.accessToken
     ) {
-      return auth.error!;
+      return Response.json(
+        {
+          success: false,
+          error:
+            auth.error ||
+            "Brak sesji użytkownika.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const email =
+      String(
+        auth.user.email || ""
+      )
+        .trim()
+        .toLowerCase();
+
+    if (!email) {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "Konto użytkownika nie posiada adresu e-mail.",
+        },
+        {
+          status: 400,
+        }
+      );
     }
 
     const userClient =
@@ -354,29 +329,24 @@ export async function GET(
     const credits =
       await getCredits(
         userClient,
-        auth.user.email
+        email
       );
 
     return Response.json({
       success: true,
       credits,
     });
-  } catch (
-    error: unknown
-  ) {
+  } catch (error) {
     console.error(
-      "CREDIT STATUS ERROR:",
+      "CREDITS GET ERROR:",
       error
     );
 
     return Response.json(
       {
         success: false,
-
         error:
-          error instanceof Error
-            ? error.message
-            : "Nie udało się sprawdzić salda kredytów.",
+          "Nie udało się pobrać liczby kredytów.",
       },
       {
         status: 500,
@@ -396,35 +366,35 @@ export async function POST(
 
     if (
       auth.error ||
-      !auth.user?.email ||
+      !auth.user ||
       !auth.accessToken
-    ) {
-      return auth.error!;
-    }
-
-    const body =
-      (await req
-        .json()
-        .catch(
-          () => ({})
-        )) as ConsumeCreditBody;
-
-    const requestedAmount =
-      Number(
-        body.amount ?? 1
-      );
-
-    if (
-      !Number.isInteger(
-        requestedAmount
-      ) ||
-      requestedAmount !== 1
     ) {
       return Response.json(
         {
           success: false,
           error:
-            "Nieprawidłowa liczba kredytów.",
+            auth.error ||
+            "Brak sesji użytkownika.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const email =
+      String(
+        auth.user.email || ""
+      )
+        .trim()
+        .toLowerCase();
+
+    if (!email) {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "Konto użytkownika nie posiada adresu e-mail.",
         },
         {
           status: 400,
@@ -432,18 +402,25 @@ export async function POST(
       );
     }
 
-    const email =
-      auth.user.email;
-
     const userClient =
       getUserClient(
         auth.accessToken
       );
 
+    /*
+     * Maksymalnie 3 próby.
+     *
+     * Po każdej aktualizacji ponownie
+     * pobieramy saldo z Supabase.
+     *
+     * Kredyt uznajemy za rozliczony
+     * dopiero wtedy, gdy baza faktycznie
+     * zwróci saldo pomniejszone o 1.
+     */
     for (
       let attempt = 0;
       attempt < 3;
-      attempt += 1
+      attempt++
     ) {
       const currentCredits =
         await getCredits(
@@ -457,10 +434,8 @@ export async function POST(
         return Response.json(
           {
             success: false,
-
             error:
-              "Brak kredytów. Kup pakiet, aby wygenerować kolejną wersję projektu.",
-
+              "Brak kredytów.",
             credits:
               currentCredits,
           },
@@ -473,8 +448,15 @@ export async function POST(
       const nextCredits =
         currentCredits - 1;
 
+      /*
+       * Aktualizacja wykonana w kontekście
+       * zalogowanego użytkownika.
+       *
+       * Jest to zgodne z mechanizmem,
+       * który wcześniej działał
+       * bezpośrednio z dashboardu.
+       */
       const {
-        data: updated,
         error: updateError,
       } =
         await userClient
@@ -486,37 +468,63 @@ export async function POST(
           .eq(
             "email",
             email
-          )
-          .eq(
-            "credits",
-            currentCredits
-          )
-          .select("credits")
-          .maybeSingle();
+          );
 
       if (updateError) {
+        console.error(
+          "CREDIT UPDATE ERROR:",
+          updateError.message
+        );
+
         throw new Error(
           updateError.message
         );
       }
 
-      if (updated) {
+      /*
+       * Nie ufamy samemu brakowi błędu.
+       * Sprawdzamy saldo ponownie.
+       */
+      const verifiedCredits =
+        await getCredits(
+          userClient,
+          email
+        );
+
+      if (
+        verifiedCredits ===
+        nextCredits
+      ) {
+        console.log(
+          "CREDIT CONSUMED:",
+          currentCredits,
+          "->",
+          verifiedCredits
+        );
+
         return Response.json({
           success: true,
-
           credits:
-            Number(
-              updated.credits ||
-                0
-            ),
+            verifiedCredits,
         });
       }
+
+      console.warn(
+        "CREDIT UPDATE NOT CONFIRMED:",
+        {
+          attempt:
+            attempt + 1,
+          expected:
+            nextCredits,
+          received:
+            verifiedCredits,
+        }
+      );
     }
 
     return Response.json(
       {
         success: false,
-
         error:
           "Nie udało się bezpiecznie rozliczyć kredytu. Spróbuj ponownie.",
       },
@@ -524,22 +532,17 @@ export async function POST(
         status: 409,
       }
     );
-  } catch (
-    error: unknown
-  ) {
+  } catch (error) {
     console.error(
-      "CREDIT CONSUME ERROR:",
+      "CREDITS POST ERROR:",
       error
     );
 
     return Response.json(
       {
         success: false,
-
         error:
-          error instanceof Error
-            ? error.message
-            : "Nie udało się rozliczyć kredytu.",
+          "Nie udało się rozliczyć kredytu.",
       },
       {
         status: 500,
