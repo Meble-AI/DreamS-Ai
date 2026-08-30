@@ -2,9 +2,15 @@ export const maxDuration = 60;
 
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAI() {
+  const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
+
+  if (!apiKey) {
+    throw new Error("Brak OPENAI_API_KEY dla AI Skanera pomieszczeń.");
+  }
+
+  return new OpenAI({ apiKey });
+}
 
 type HistoryMessage = {
   role: "user" | "assistant";
@@ -284,6 +290,7 @@ export async function POST(
   req: Request
 ) {
   try {
+    const openai = getOpenAI();
     const body = await req.json();
 
     const {
@@ -336,10 +343,6 @@ export async function POST(
       typeof message === "string"
         ? message.slice(0, 4000).trim()
         : "";
-
-    // =========================
-    // 1. STRUKTURALNA ANALIZA POMIESZCZENIA
-    // =========================
 
     const analysisResponse =
       await openai.chat.completions.create({
@@ -481,10 +484,6 @@ ${userInstruction || "Brak dodatkowych uwag."}
       ) ||
       createFallbackAnalysis();
 
-    // =========================
-    // 2. ODPOWIEDŹ PROJEKTANTA
-    // =========================
-
     const designerResponse =
       await openai.chat.completions.create({
         model: "gpt-4.1",
@@ -494,7 +493,7 @@ ${userInstruction || "Brak dodatkowych uwag."}
             role: "system",
 
             content: `
-Jesteś projektantem wnętrz Projektuj AI.
+Jesteś projektantem wnętrz DreamS AI.
 
 Na podstawie strukturalnej analizy pomieszczenia oraz rozmowy z klientem:
 - przedstaw najważniejsze decyzje projektowe,
@@ -532,10 +531,6 @@ ${userInstruction || "Przygotuj profesjonalne podsumowanie projektu."}
         .choices?.[0]
         ?.message?.content ||
       "Przygotowano analizę pomieszczenia.";
-
-    // =========================
-    // 3. GENEROWANIE WIZUALIZACJI
-    // =========================
 
     const imagePrompt = `
 Wygeneruj fotorealistyczną wizualizację nowoczesnej kuchni premium na wymiar.

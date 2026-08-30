@@ -84,27 +84,9 @@ const configuredSupabaseAnonKey =
       .NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 
-/*
- * W DEVELOPMENT nie wymagamy lokalnych kluczy Supabase.
- *
- * Przeglądarka łączy się z:
- *   localhost/api/supabase/...
- *
- * Lokalny route przekazuje żądania do dreamsai.pl,
- * a produkcyjny route dopiero do prawdziwego Supabase.
- *
- * Dzięki temu:
- * - localhost działa bez .env.local,
- * - produkcja nadal używa własnych zmiennych Vercel,
- * - żaden sekret serwerowy nie trafia do przeglądarki.
- */
 const useLocalSupabaseProxy =
-  process.env.NODE_ENV !==
-    "production" &&
-  (
-    !configuredSupabaseUrl ||
-    !configuredSupabaseAnonKey
-  );
+  !configuredSupabaseUrl ||
+  !configuredSupabaseAnonKey;
 
 const localProxyUrl =
   typeof window !==

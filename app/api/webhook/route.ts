@@ -5,64 +5,6 @@ import {
   createClient,
 } from "@supabase/supabase-js";
 
-const stripeSecretKey =
-  process.env.STRIPE_SECRET_KEY;
-
-const webhookSecret =
-  process.env.STRIPE_WEBHOOK_SECRET;
-
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-const supabaseServerKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_KEY;
-
-if (!stripeSecretKey) {
-  throw new Error(
-    "Brak STRIPE_SECRET_KEY."
-  );
-}
-
-if (!webhookSecret) {
-  throw new Error(
-    "Brak STRIPE_WEBHOOK_SECRET."
-  );
-}
-
-if (
-  !supabaseUrl ||
-  !supabaseServerKey
-) {
-  throw new Error(
-    "Brak danych Supabase po stronie serwera."
-  );
-}
-
-const verifiedWebhookSecret:
-  string =
-  webhookSecret;
-
-const stripe =
-  new Stripe(
-    stripeSecretKey
-  );
-
-const supabase =
-  createClient(
-    supabaseUrl,
-    supabaseServerKey,
-    {
-      auth: {
-        persistSession:
-          false,
-
-        autoRefreshToken:
-          false,
-      },
-    }
-  );
-
 type PlanData = {
   name:
     "START" |
@@ -72,6 +14,69 @@ type PlanData = {
   credits:
     number;
 };
+
+function getServerClients() {
+
+  const stripeSecretKey =
+    process.env.STRIPE_SECRET_KEY;
+
+  const webhookSecret =
+    process.env.STRIPE_WEBHOOK_SECRET;
+
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  const supabaseServerKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_KEY;
+
+  if (!stripeSecretKey) {
+    throw new Error(
+      "Brak STRIPE_SECRET_KEY."
+    );
+  }
+
+  if (!webhookSecret) {
+    throw new Error(
+      "Brak STRIPE_WEBHOOK_SECRET."
+    );
+  }
+
+  if (
+    !supabaseUrl ||
+    !supabaseServerKey
+  ) {
+    throw new Error(
+      "Brak danych Supabase po stronie serwera."
+    );
+  }
+
+  const stripe =
+    new Stripe(
+      stripeSecretKey
+    );
+
+  const supabase =
+    createClient(
+      supabaseUrl,
+      supabaseServerKey,
+      {
+        auth: {
+          persistSession:
+            false,
+
+          autoRefreshToken:
+            false,
+        },
+      }
+    );
+
+  return {
+    stripe,
+    supabase,
+    webhookSecret,
+  };
+}
 
 function getPlanForPrice(
   priceId: string
@@ -99,7 +104,7 @@ function getPlanForPrice(
         "START",
 
       credits:
-        9,
+        3,
     };
   }
 
@@ -127,7 +132,7 @@ function getPlanForPrice(
         "PREMIUM",
 
       credits:
-        3,
+        9,
     };
   }
 
@@ -135,6 +140,7 @@ function getPlanForPrice(
 }
 
 async function getCheckoutPriceId(
+  stripe: Stripe,
   session:
     Stripe.Checkout.Session
 ) {
@@ -170,6 +176,8 @@ async function getCheckoutPriceId(
 }
 
 async function processPaidSession(
+  stripe: Stripe,
+  supabase: any,
   session:
     Stripe.Checkout.Session
 ) {
@@ -208,6 +216,7 @@ async function processPaidSession(
 
   const priceId =
     await getCheckoutPriceId(
+      stripe,
       session
     );
 
@@ -354,6 +363,12 @@ export async function POST(
 
   try {
 
+    const {
+      stripe,
+      supabase,
+      webhookSecret,
+    } = getServerClients();
+
     const signature =
       req.headers.get(
         "stripe-signature"
@@ -389,7 +404,7 @@ export async function POST(
           .constructEvent(
             rawBody,
             signature,
-            verifiedWebhookSecret
+            webhookSecret
           );
 
     } catch (
@@ -439,6 +454,8 @@ export async function POST(
             .object as Stripe.Checkout.Session;
 
         await processPaidSession(
+          stripe,
+          supabase,
           session
         );
 

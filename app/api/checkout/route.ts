@@ -5,9 +5,6 @@ import {
   createClient,
 } from "@supabase/supabase-js";
 
-const stripeSecretKey =
-  process.env.STRIPE_SECRET_KEY;
-
 function cleanEnvironmentValue(
   value: string | undefined
 ): string {
@@ -59,36 +56,48 @@ function normalizeSupabaseUrl(
   }
 }
 
-const supabaseUrl =
-  normalizeSupabaseUrl(
-    process.env.NEXT_PUBLIC_SUPABASE_URL
-  );
+function getServerClients() {
 
-const supabaseAnonKey =
-  cleanEnvironmentValue(
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
+  const stripeSecretKey =
+    cleanEnvironmentValue(
+      process.env.STRIPE_SECRET_KEY
+    );
 
-if (!stripeSecretKey) {
-  throw new Error(
-    "Brak STRIPE_SECRET_KEY w zmiennych środowiskowych."
-  );
+  const supabaseUrl =
+    normalizeSupabaseUrl(
+      process.env.NEXT_PUBLIC_SUPABASE_URL
+    );
+
+  const supabaseAnonKey =
+    cleanEnvironmentValue(
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
+  if (!stripeSecretKey) {
+    throw new Error(
+      "Brak STRIPE_SECRET_KEY w zmiennych środowiskowych."
+    );
+  }
+
+  if (
+    !supabaseUrl ||
+    !supabaseAnonKey
+  ) {
+    throw new Error(
+      "Brak NEXT_PUBLIC_SUPABASE_URL lub NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
+  }
+
+  return {
+    stripe:
+      new Stripe(
+        stripeSecretKey
+      ),
+
+    supabaseUrl,
+    supabaseAnonKey,
+  };
 }
-
-if (
-  !supabaseUrl ||
-  !supabaseAnonKey
-) {
-  throw new Error(
-    "Brak NEXT_PUBLIC_SUPABASE_URL lub NEXT_PUBLIC_SUPABASE_ANON_KEY."
-  );
-}
-
-const stripe =
-  new Stripe(
-    stripeSecretKey
-  );
-
 
 type CheckoutBody = {
   priceId?: string;
@@ -134,7 +143,7 @@ function getAllowedPrices() {
           "START",
 
         credits:
-          9,
+          3,
       }
     );
   }
@@ -162,7 +171,7 @@ function getAllowedPrices() {
           "PREMIUM",
 
         credits:
-          3,
+          9,
       }
     );
   }
@@ -203,6 +212,13 @@ export async function POST(
     console.log(
       "START CHECKOUT"
     );
+
+    const {
+      stripe,
+      supabaseUrl,
+      supabaseAnonKey,
+    } =
+      getServerClients();
 
     const authorization =
       req.headers.get(
