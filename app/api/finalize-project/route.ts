@@ -9,11 +9,13 @@ import {
   addLogoToImage,
 } from "@/lib/addLogo";
 
-const openai =
-  new OpenAI({
-    apiKey:
-      process.env.OPENAI_API_KEY,
-  });
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("Brak OPENAI_API_KEY w zmiennych środowiskowych.");
+  }
+  return new OpenAI({ apiKey });
+}
 
 type FinalizeRequest = {
   mode?: "analyze" | "finalize";
@@ -71,6 +73,8 @@ export async function POST(
 ) {
 
   try {
+
+    const openai = getOpenAI();
 
     const body =
       await req.json() as

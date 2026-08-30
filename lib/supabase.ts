@@ -85,12 +85,8 @@ const configuredSupabaseAnonKey =
   );
 
 const useLocalSupabaseProxy =
-  process.env.NODE_ENV !==
-    "production" &&
-  (
-    !configuredSupabaseUrl ||
-    !configuredSupabaseAnonKey
-  );
+  !configuredSupabaseUrl ||
+  !configuredSupabaseAnonKey;
 
 const localProxyUrl =
   typeof window !==
