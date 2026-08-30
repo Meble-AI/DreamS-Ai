@@ -256,9 +256,7 @@ async function getCredits(
     );
   }
 
-  return Number(
-    profile?.credits || 0
-  );
+  const credits = Number(profile?.credits || 0); console.log("BACKEND CREDITS:", credits); return credits;
 }
 
 export async function GET(
@@ -468,3 +466,4 @@ export async function POST(
     );
   }
 }
+
