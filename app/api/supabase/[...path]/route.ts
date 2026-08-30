@@ -1,35 +1,67 @@
-export const runtime =
-  "nodejs";
+export const runtime = "nodejs";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
-const PRODUCTION_APP_URL =
-  "https://dreamsai.pl";
+const PRODUCTION_APP_URL = "https://dreamsai.pl";
 
 function cleanEnvironmentValue(
-  value:
-    string |
-    undefined
+  value: string | undefined
 ): string {
-
-  return String(
-    value ||
-    ""
-  )
+  return String(value || "")
     .trim()
-    .replace(
-      /^["']|["']$/g,
-      ""
+    .replace(/^["']|["']$/g, "");
+}
+
+function normalizeSupabaseUrl(
+  value: string | undefined
+): string {
+  const rawValue =
+    cleanEnvironmentValue(value);
+
+  if (!rawValue) {
+    throw new Error(
+      "Brak adresu Supabase."
     );
+  }
+
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl =
+      new URL(rawValue);
+  } catch {
+    throw new Error(
+      "Nieprawidłowy adres Supabase."
+    );
+  }
+
+  if (
+    parsedUrl.protocol !== "https:"
+  ) {
+    throw new Error(
+      "Adres Supabase musi używać HTTPS."
+    );
+  }
+
+  /*
+   * WAŻNE:
+   * createClient i proxy potrzebują głównego
+   * adresu projektu:
+   *
+   * https://xxxxx.supabase.co
+   *
+   * Jeżeli w ENV przypadkowo znalazło się np.
+   * /rest/v1, /auth/v1 itd., usuwamy tę część.
+   */
+  return parsedUrl.origin;
 }
 
 function getProductionSupabaseConfig() {
-
-  const url =
+  const rawUrl =
     cleanEnvironmentValue(
       process.env
-        .NEXT_PUBLIC_SUPABASE_URL
+        .NEXT_PUBLIC_SUPABASE_URL ||
+        process.env.SUPABASE_URL
     );
 
   const anonKey =
@@ -39,18 +71,16 @@ function getProductionSupabaseConfig() {
     );
 
   if (
-    !url ||
+    !rawUrl ||
     !anonKey
   ) {
-
     return null;
   }
 
   return {
     url:
-      url.replace(
-        /\/+$/,
-        ""
+      normalizeSupabaseUrl(
+        rawUrl
       ),
 
     anonKey,
@@ -58,12 +88,9 @@ function getProductionSupabaseConfig() {
 }
 
 function copyRequestHeaders(
-  req:
-    Request,
-  anonKey?:
-    string
+  req: Request,
+  anonKey?: string
 ): Headers {
-
   const headers =
     new Headers();
 
@@ -78,19 +105,13 @@ function copyRequestHeaders(
   ];
 
   passThroughHeaders.forEach(
-    (
-      headerName
-    ) => {
-
+    (headerName) => {
       const value =
         req.headers.get(
           headerName
         );
 
-      if (
-        value
-      ) {
-
+      if (value) {
         headers.set(
           headerName,
           value
@@ -104,22 +125,12 @@ function copyRequestHeaders(
       "authorization"
     );
 
-  if (
-    anonKey
-  ) {
-
+  if (anonKey) {
     headers.set(
       "apikey",
       anonKey
     );
 
-    /*
-     * Jeśli klient jest niezalogowany, supabase-js wysyła
-     * nasz techniczny lokalny klucz. Podmieniamy go na
-     * prawdziwy ANON key dopiero na serwerze Vercel.
-     *
-     * Jeśli klient jest zalogowany, zachowujemy jego JWT.
-     */
     const isLocalProxyAuthorization =
       !incomingAuthorization ||
       incomingAuthorization.includes(
@@ -130,13 +141,11 @@ function copyRequestHeaders(
       "authorization",
       isLocalProxyAuthorization
         ? `Bearer ${anonKey}`
-        : incomingAuthorization!
+        : incomingAuthorization
     );
-
   } else if (
     incomingAuthorization
   ) {
-
     headers.set(
       "authorization",
       incomingAuthorization
@@ -147,33 +156,27 @@ function copyRequestHeaders(
 }
 
 function copyResponseHeaders(
-  source:
-    Headers
+  source: Headers
 ): Headers {
-
   const headers =
     new Headers();
 
-  const blocked = new Set([
-    "connection",
-    "content-encoding",
-    "content-length",
-    "keep-alive",
-    "transfer-encoding",
-  ]);
+  const blocked =
+    new Set([
+      "connection",
+      "content-encoding",
+      "content-length",
+      "keep-alive",
+      "transfer-encoding",
+    ]);
 
   source.forEach(
-    (
-      value,
-      key
-    ) => {
-
+    (value, key) => {
       if (
         !blocked.has(
           key.toLowerCase()
         )
       ) {
-
         headers.set(
           key,
           value
@@ -190,184 +193,199 @@ function copyResponseHeaders(
   return headers;
 }
 
+type RouteContext = {
+  params: Promise<{
+    path: string[];
+  }>;
+};
+
 async function proxyRequest(
-  req:
-    Request,
-  context:
-    {
-      params:
-        Promise<{
-          path:
-            string[];
-        }>;
-    }
+  req: Request,
+  context: RouteContext
 ): Promise<Response> {
+  try {
+    const {
+      path = [],
+    } =
+      await context.params;
 
-  const {
-    path = [],
-  } =
-    await context.params;
-
-  const sourceUrl =
-    new URL(
-      req.url
-    );
-
-  const pathString =
-    path
-      .map(
-        encodeURIComponent
-      )
-      .join(
-        "/"
-      );
-
-  const productionConfig =
-    getProductionSupabaseConfig();
-
-  let targetUrl:
-    URL;
-
-  let headers:
-    Headers;
-
-  if (
-    productionConfig
-  ) {
-
-    /*
-     * PRODUKCJA:
-     * bezpośrednio do prawdziwego Supabase.
-     */
-    targetUrl =
-      new URL(
-        `${productionConfig.url}/${pathString}`
-      );
-
-    targetUrl.search =
-      sourceUrl.search;
-
-    headers =
-      copyRequestHeaders(
-        req,
-        productionConfig.anonKey
-      );
-
-  } else {
-
-    /*
-     * LOCALHOST:
-     * nie mamy lokalnego URL ani ANON key,
-     * więc idziemy do tego samego route na dreamsai.pl.
-     *
-     * Tam środowisko Vercel ma prawidłowe zmienne
-     * i wykona dopiero połączenie z Supabase.
-     */
     if (
-      process.env.VERCEL ===
-      "1"
+      !Array.isArray(path) ||
+      path.length === 0
     ) {
-
       return Response.json(
         {
           error:
-            "Brak konfiguracji Supabase w środowisku produkcyjnym Vercel.",
+            "Brak ścieżki Supabase.",
         },
         {
-          status:
-            500,
+          status: 400,
         }
       );
     }
 
-    targetUrl =
-      new URL(
-        `/api/supabase/${pathString}`,
-        PRODUCTION_APP_URL
-      );
+    const sourceUrl =
+      new URL(req.url);
 
-    targetUrl.search =
-      sourceUrl.search;
+    const pathString =
+      path
+        .map(
+          (segment) =>
+            encodeURIComponent(
+              segment
+            )
+        )
+        .join("/");
 
-    headers =
-      copyRequestHeaders(
-        req
-      );
-  }
+    const productionConfig =
+      getProductionSupabaseConfig();
 
-  const method =
-    req.method.toUpperCase();
+    let targetUrl: URL;
 
-  let body:
-    ArrayBuffer |
-    undefined;
-
-  if (
-    method !== "GET" &&
-    method !== "HEAD"
-  ) {
-
-    const requestBody =
-      await req.arrayBuffer();
+    let headers: Headers;
 
     if (
-      requestBody.byteLength >
-      0
+      productionConfig
     ) {
+      /*
+       * Przykład:
+       *
+       * BASE:
+       * https://xxxxx.supabase.co
+       *
+       * PATH:
+       * auth/v1/token
+       *
+       * FINAL:
+       * https://xxxxx.supabase.co/auth/v1/token
+       */
+      targetUrl =
+        new URL(
+          `/${pathString}`,
+          productionConfig.url
+        );
 
-      body =
-        requestBody;
+      targetUrl.search =
+        sourceUrl.search;
+
+      headers =
+        copyRequestHeaders(
+          req,
+          productionConfig.anonKey
+        );
+    } else {
+      /*
+       * Lokalnie, gdy nie ma zmiennych Supabase,
+       * przesyłamy żądanie do produkcyjnego proxy.
+       */
+      if (
+        process.env.VERCEL ===
+        "1"
+      ) {
+        return Response.json(
+          {
+            error:
+              "Brak konfiguracji Supabase w środowisku Vercel.",
+          },
+          {
+            status: 500,
+          }
+        );
+      }
+
+      targetUrl =
+        new URL(
+          `/api/supabase/${pathString}`,
+          PRODUCTION_APP_URL
+        );
+
+      targetUrl.search =
+        sourceUrl.search;
+
+      headers =
+        copyRequestHeaders(
+          req
+        );
     }
-  }
 
-  const response =
-    await fetch(
-      targetUrl,
+    const method =
+      req.method.toUpperCase();
+
+    let body:
+      | ArrayBuffer
+      | undefined;
+
+    if (
+      method !== "GET" &&
+      method !== "HEAD"
+    ) {
+      const requestBody =
+        await req.arrayBuffer();
+
+      if (
+        requestBody.byteLength >
+        0
+      ) {
+        body =
+          requestBody;
+      }
+    }
+
+    const response =
+      await fetch(
+        targetUrl,
+        {
+          method,
+          headers,
+          body,
+          redirect:
+            "manual",
+          cache:
+            "no-store",
+        }
+      );
+
+    return new Response(
+      response.body,
       {
-        method,
+        status:
+          response.status,
 
-        headers,
+        statusText:
+          response.statusText,
 
-        body,
-
-        redirect:
-          "manual",
-
-        cache:
-          "no-store",
+        headers:
+          copyResponseHeaders(
+            response.headers
+          ),
       }
     );
+  } catch (error: unknown) {
+    console.error(
+      "SUPABASE PROXY ERROR:",
+      error instanceof Error
+        ? error.message
+        : error
+    );
 
-  return new Response(
-    response.body,
-    {
-      status:
-        response.status,
-
-      statusText:
-        response.statusText,
-
-      headers:
-        copyResponseHeaders(
-          response.headers
-        ),
-    }
-  );
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Błąd połączenia z Supabase.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }
 
 export async function GET(
-  req:
-    Request,
-  context:
-    {
-      params:
-        Promise<{
-          path:
-            string[];
-        }>;
-    }
+  req: Request,
+  context: RouteContext
 ) {
-
   return proxyRequest(
     req,
     context
@@ -375,18 +393,9 @@ export async function GET(
 }
 
 export async function POST(
-  req:
-    Request,
-  context:
-    {
-      params:
-        Promise<{
-          path:
-            string[];
-        }>;
-    }
+  req: Request,
+  context: RouteContext
 ) {
-
   return proxyRequest(
     req,
     context
@@ -394,18 +403,9 @@ export async function POST(
 }
 
 export async function PUT(
-  req:
-    Request,
-  context:
-    {
-      params:
-        Promise<{
-          path:
-            string[];
-        }>;
-    }
+  req: Request,
+  context: RouteContext
 ) {
-
   return proxyRequest(
     req,
     context
@@ -413,18 +413,9 @@ export async function PUT(
 }
 
 export async function PATCH(
-  req:
-    Request,
-  context:
-    {
-      params:
-        Promise<{
-          path:
-            string[];
-        }>;
-    }
+  req: Request,
+  context: RouteContext
 ) {
-
   return proxyRequest(
     req,
     context
@@ -432,18 +423,9 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  req:
-    Request,
-  context:
-    {
-      params:
-        Promise<{
-          path:
-            string[];
-        }>;
-    }
+  req: Request,
+  context: RouteContext
 ) {
-
   return proxyRequest(
     req,
     context
@@ -451,18 +433,9 @@ export async function DELETE(
 }
 
 export async function OPTIONS(
-  req:
-    Request,
-  context:
-    {
-      params:
-        Promise<{
-          path:
-            string[];
-        }>;
-    }
+  req: Request,
+  context: RouteContext
 ) {
-
   return proxyRequest(
     req,
     context
