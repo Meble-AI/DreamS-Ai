@@ -177,7 +177,7 @@ async function getCheckoutPriceId(
 
 async function processPaidSession(
   stripe: Stripe,
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   session:
     Stripe.Checkout.Session
 ) {
