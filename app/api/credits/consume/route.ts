@@ -1,6 +1,9 @@
 export const runtime = "nodejs";
 
-import { createClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  SupabaseClient,
+} from "@supabase/supabase-js";
 
 type ConsumeCreditBody = {
   amount?: number;
@@ -55,18 +58,33 @@ function getSupabaseConfig() {
         process.env.SUPABASE_URL
     );
 
+  const supabaseAnonKey =
+    cleanEnvironmentValue(
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
   const supabaseServiceRoleKey =
     cleanEnvironmentValue(
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
-        process.env.SUPABASE_KEY
+        process.env.SUPABASE_KEY ||
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
 
-  if (
-    !rawSupabaseUrl ||
-    !supabaseServiceRoleKey
-  ) {
+  if (!rawSupabaseUrl) {
     throw new Error(
-      "Brak konfiguracji Supabase dla API kredytów."
+      "Brak adresu Supabase dla API kredytów."
+    );
+  }
+
+  if (!supabaseAnonKey) {
+    throw new Error(
+      "Brak klucza publicznego Supabase dla API kredytów."
+    );
+  }
+
+  if (!supabaseServiceRoleKey) {
+    throw new Error(
+      "Brak klucza Supabase dla weryfikacji sesji."
     );
   }
 
@@ -76,11 +94,13 @@ function getSupabaseConfig() {
         rawSupabaseUrl
       ),
 
+    supabaseAnonKey,
+
     supabaseServiceRoleKey,
   };
 }
 
-function getAdminClient() {
+function getAuthClient() {
   const {
     supabaseUrl,
     supabaseServiceRoleKey,
@@ -95,6 +115,35 @@ function getAdminClient() {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
+      },
+    }
+  );
+}
+
+function getUserClient(
+  accessToken: string
+) {
+  const {
+    supabaseUrl,
+    supabaseAnonKey,
+  } =
+    getSupabaseConfig();
+
+  return createClient(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+
+      global: {
+        headers: {
+          Authorization:
+            `Bearer ${accessToken}`,
+        },
       },
     }
   );
@@ -147,17 +196,18 @@ async function getAuthenticatedUser(
         ),
 
       user: null,
+      accessToken: null,
     };
   }
 
-  const admin =
-    getAdminClient();
+  const authClient =
+    getAuthClient();
 
   const {
     data,
     error,
   } =
-    await admin.auth.getUser(
+    await authClient.auth.getUser(
       accessToken
     );
 
@@ -181,6 +231,7 @@ async function getAuthenticatedUser(
         ),
 
       user: null,
+      accessToken: null,
     };
   }
 
@@ -203,6 +254,7 @@ async function getAuthenticatedUser(
         ),
 
       user: null,
+      accessToken: null,
     };
   }
 
@@ -225,26 +277,26 @@ async function getAuthenticatedUser(
         ),
 
       user: null,
+      accessToken: null,
     };
   }
 
   return {
     error: null,
     user: data.user,
+    accessToken,
   };
 }
 
 async function getCredits(
+  supabase: SupabaseClient,
   email: string
 ) {
-  const admin =
-    getAdminClient();
-
   const {
     data: profile,
     error: profileError,
   } =
-    await admin
+    await supabase
       .from("profiles")
       .select("credits")
       .eq("email", email)
@@ -256,7 +308,25 @@ async function getCredits(
     );
   }
 
-  const credits = Number(profile?.credits || 0); console.log("BACKEND CREDITS:", credits); return credits;
+  if (!profile) {
+    console.error(
+      "CREDIT PROFILE ERROR: profil użytkownika nie został znaleziony."
+    );
+
+    return 0;
+  }
+
+  const credits =
+    Number(
+      profile.credits || 0
+    );
+
+  console.log(
+    "BACKEND CREDITS:",
+    credits
+  );
+
+  return credits;
 }
 
 export async function GET(
@@ -270,13 +340,20 @@ export async function GET(
 
     if (
       auth.error ||
-      !auth.user?.email
+      !auth.user?.email ||
+      !auth.accessToken
     ) {
       return auth.error!;
     }
 
+    const userClient =
+      getUserClient(
+        auth.accessToken
+      );
+
     const credits =
       await getCredits(
+        userClient,
         auth.user.email
       );
 
@@ -319,7 +396,8 @@ export async function POST(
 
     if (
       auth.error ||
-      !auth.user?.email
+      !auth.user?.email ||
+      !auth.accessToken
     ) {
       return auth.error!;
     }
@@ -357,8 +435,10 @@ export async function POST(
     const email =
       auth.user.email;
 
-    const admin =
-      getAdminClient();
+    const userClient =
+      getUserClient(
+        auth.accessToken
+      );
 
     for (
       let attempt = 0;
@@ -367,6 +447,7 @@ export async function POST(
     ) {
       const currentCredits =
         await getCredits(
+          userClient,
           email
         );
 
@@ -396,7 +477,7 @@ export async function POST(
         data: updated,
         error: updateError,
       } =
-        await admin
+        await userClient
           .from("profiles")
           .update({
             credits:
@@ -466,4 +547,3 @@ export async function POST(
     );
   }
 }
-
