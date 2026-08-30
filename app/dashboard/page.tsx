@@ -2568,23 +2568,69 @@ try {
           }
         );
 
-        pdf.setFontSize(
-          12
-        );
-        pdf.setTextColor(
-          255,
-          255,
-          255
-        );
-        pdf.text(
-          `UJĘCIE ${index + 1} / ${projectImages.length}`,
-          pageWidth - margin,
-          16,
-          {
-            align:
-              "right",
-          }
-        );
+        /*
+         * Wbudowane fonty jsPDF nie obsługują poprawnie litery Ę.
+         * Dlatego napis UJĘCIE renderujemy przez canvas i wstawiamy
+         * do PDF jako obraz PNG. Dzięki temu polskie znaki są poprawne.
+         */
+        const shotLabelCanvas =
+          document.createElement(
+            "canvas"
+          );
+
+        shotLabelCanvas.width =
+          900;
+
+        shotLabelCanvas.height =
+          90;
+
+        const shotLabelContext =
+          shotLabelCanvas.getContext(
+            "2d"
+          );
+
+        if (
+          shotLabelContext
+        ) {
+
+          shotLabelContext.clearRect(
+            0,
+            0,
+            shotLabelCanvas.width,
+            shotLabelCanvas.height
+          );
+
+          shotLabelContext.font =
+            "700 38px Arial";
+
+          shotLabelContext.fillStyle =
+            "#ffffff";
+
+          shotLabelContext.textAlign =
+            "right";
+
+          shotLabelContext.textBaseline =
+            "middle";
+
+          shotLabelContext.fillText(
+            `UJĘCIE ${index + 1} / ${projectImages.length}`,
+            shotLabelCanvas.width - 5,
+            shotLabelCanvas.height / 2
+          );
+
+          pdf.addImage(
+            shotLabelCanvas.toDataURL(
+              "image/png"
+            ),
+            "PNG",
+            pageWidth - margin - 58,
+            11.5,
+            58,
+            7,
+            undefined,
+            "FAST"
+          );
+        }
 
         pdf.setDrawColor(
           216,
