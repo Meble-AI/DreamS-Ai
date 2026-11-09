@@ -153,13 +153,20 @@ async function getCheckoutPriceId(
         session.id,
         {
           limit:
-            1,
+            2,
         }
       );
 
+  if (
+    lineItems.data.length !== 1 ||
+    lineItems.has_more ||
+    lineItems.data[0].quantity !== 1
+  ) {
+    throw new Error("Nieprawidłowa liczba pozycji w sesji Stripe.");
+  }
+
   const firstPrice =
-    lineItems.data?.[0]
-      ?.price;
+    lineItems.data[0].price;
 
   // Stripe line items, not client-controlled session metadata,
   // determine the purchased price.
@@ -186,6 +193,10 @@ async function processPaidSession(
     "PAYMENT STATUS:",
     session.payment_status
   );
+
+  if (session.mode !== "payment") {
+    throw new Error("Nieprawidłowy typ sesji Stripe.");
+  }
 
   if (
     session.payment_status !==
