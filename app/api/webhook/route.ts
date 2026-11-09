@@ -145,13 +145,6 @@ async function getCheckoutPriceId(
     Stripe.Checkout.Session
 ) {
 
-  const metadataPriceId =
-    session.metadata?.priceId;
-
-  if (metadataPriceId) {
-    return metadataPriceId;
-  }
-
   const lineItems =
     await stripe
       .checkout
@@ -168,6 +161,8 @@ async function getCheckoutPriceId(
     lineItems.data?.[0]
       ?.price;
 
+  // Stripe line items, not client-controlled session metadata,
+  // determine the purchased price.
   return (
     typeof firstPrice === "string"
       ? firstPrice
