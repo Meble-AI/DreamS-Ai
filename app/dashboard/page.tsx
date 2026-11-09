@@ -147,18 +147,21 @@ if (savedRating) {
   );
 }
 
+        const { data: authResult } = await supabase.auth.getUser();
+        const currentUserEmail = authResult.user?.email;
+        if (!currentUserEmail) {
+          window.location.href = "/login?redirect=" + encodeURIComponent(
+            "/dashboard?project=" + encodeURIComponent(activeProjectId)
+          );
+          return;
+        }
+
         const { data } =
           await supabase
-
             .from("projects")
-
             .select("*")
-
-            .eq(
-              "id",
-              activeProjectId
-            )
-
+            .eq("id", activeProjectId)
+            .eq("user_email", currentUserEmail)
             .single();
 
         if (data) {
@@ -696,10 +699,8 @@ async function saveProject(
               compressedPreview,
           })
 
-          .eq(
-            "id",
-            projectId
-          );
+          .eq("id", projectId)
+          .eq("user_email", authenticatedEmail);
 
       if (
         updateError
