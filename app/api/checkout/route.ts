@@ -597,23 +597,12 @@ export async function POST(
       err
     );
 
-    const message =
-      err instanceof Error
-        ? err.message
-        : "Błąd Stripe";
-
     return Response.json(
       {
-        success:
-          false,
-
-        error:
-          message,
+        success: false,
+        error: "Nie udało się rozpocząć płatności. Spróbuj ponownie później.",
       },
-      {
-        status:
-          500,
-      }
+      { status: 500 }
     );
   }
 }
