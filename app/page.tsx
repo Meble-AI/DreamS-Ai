@@ -113,7 +113,7 @@ export default function Home() {
                 <div key={item} className="flex items-center gap-4"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#d8aa4c]/30 bg-[#d8aa4c]/10 text-[#f0c56e]">✓</div><span className="text-lg text-gray-200">{item}</span></div>
               ))}
             </div>
-            <Link href="/login?redirect=room-scanner" className={`${goldButton} mt-10`}>Uruchom AI Room Scanner</Link>
+            <Link href="/login?redirect=%2Froom-scanner" className={`${goldButton} mt-10`}>Uruchom AI Room Scanner</Link>
           </div>
           <div className="relative">
             <div className="absolute -inset-4 rounded-[36px] bg-[#d8aa4c]/10 blur-3xl" />
