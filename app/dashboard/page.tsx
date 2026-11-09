@@ -692,15 +692,15 @@ async function saveProject(
           )
 
           .update({
-            conversation:
-              conversationToStore,
-
-            image_url:
-              compressedPreview,
+            conversation: conversationToStore,
+            ...(compressedPreview !== undefined
+              ? { image_url: compressedPreview }
+              : {}),
           })
-
           .eq("id", projectId)
-          .eq("user_email", authenticatedEmail);
+          .eq("user_email", authenticatedEmail)
+          .select("id")
+          .single();
 
       if (
         updateError
