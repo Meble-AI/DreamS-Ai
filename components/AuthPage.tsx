@@ -14,7 +14,7 @@ type Props = {
 function safeRedirect() {
   if (typeof window === "undefined") return "/dashboard";
   const value = new URLSearchParams(window.location.search).get("redirect");
-  return value && value.startsWith("/") && !value.startsWith("//")
+  return value && /^\/(?!\/|\\)[^\\\r\n\t]*$/.test(value)
     ? value
     : "/dashboard";
 }

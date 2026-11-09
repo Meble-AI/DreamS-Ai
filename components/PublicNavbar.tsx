@@ -47,8 +47,6 @@ export default function PublicNavbar() {
     };
   }, []);
 
-  useEffect(() => setMobileOpen(false), [pathname]);
-
   async function logout() {
     try {
       await supabase.auth.signOut();
@@ -99,7 +97,7 @@ export default function PublicNavbar() {
 
         {mobileOpen && (
           <div className="border-t border-white/10 bg-[#090c11] px-4 py-4 md:hidden">
-            <div className="mx-auto flex max-w-7xl flex-col gap-2">
+            <div className="mx-auto flex max-w-7xl flex-col gap-2" onClick={() => setMobileOpen(false)}>
               <Link href="/" className={mobileLink}>Strona główna</Link>
               <Link href="/#jak-to-dziala" className={mobileLink}>Jak to działa</Link>
               <Link href="/pricing" className={mobileLink}>Pakiety</Link>

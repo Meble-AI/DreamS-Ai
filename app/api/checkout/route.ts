@@ -383,15 +383,29 @@ export async function POST(
       null;
 
     const versionNumber =
-      Number.isFinite(
-        Number(
-          body.versionNumber
-        )
-      )
-        ? Number(
-            body.versionNumber
-          )
+      body.versionNumber !== null &&
+      body.versionNumber !== undefined &&
+      Number.isSafeInteger(body.versionNumber) &&
+      body.versionNumber > 0
+        ? body.versionNumber
         : null;
+
+    // Do not attach someone else's project to a checkout session.
+    if (projectId) {
+      const { data: ownedProject, error: projectError } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("id", projectId)
+        .eq("user_email", user.email)
+        .maybeSingle();
+
+      if (projectError || !ownedProject) {
+        return Response.json(
+          { success: false, error: "Nie znaleziono projektu na Twoim koncie." },
+          { status: 403 }
+        );
+      }
+    }
 
     if (!priceId) {
 
@@ -597,23 +611,12 @@ export async function POST(
       err
     );
 
-    const message =
-      err instanceof Error
-        ? err.message
-        : "Błąd Stripe";
-
     return Response.json(
       {
-        success:
-          false,
-
-        error:
-          message,
+        success: false,
+        error: "Nie udało się rozpocząć płatności. Spróbuj ponownie później.",
       },
-      {
-        status:
-          500,
-      }
+      { status: 500 }
     );
   }
 }

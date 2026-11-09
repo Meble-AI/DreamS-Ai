@@ -145,13 +145,6 @@ async function getCheckoutPriceId(
     Stripe.Checkout.Session
 ) {
 
-  const metadataPriceId =
-    session.metadata?.priceId;
-
-  if (metadataPriceId) {
-    return metadataPriceId;
-  }
-
   const lineItems =
     await stripe
       .checkout
@@ -160,14 +153,23 @@ async function getCheckoutPriceId(
         session.id,
         {
           limit:
-            1,
+            2,
         }
       );
 
-  const firstPrice =
-    lineItems.data?.[0]
-      ?.price;
+  if (
+    lineItems.data.length !== 1 ||
+    lineItems.has_more ||
+    lineItems.data[0].quantity !== 1
+  ) {
+    throw new Error("Nieprawidłowa liczba pozycji w sesji Stripe.");
+  }
 
+  const firstPrice =
+    lineItems.data[0].price;
+
+  // Stripe line items, not client-controlled session metadata,
+  // determine the purchased price.
   return (
     typeof firstPrice === "string"
       ? firstPrice
@@ -191,6 +193,10 @@ async function processPaidSession(
     "PAYMENT STATUS:",
     session.payment_status
   );
+
+  if (session.mode !== "payment") {
+    throw new Error("Nieprawidłowy typ sesji Stripe.");
+  }
 
   if (
     session.payment_status !==
@@ -505,23 +511,12 @@ export async function POST(
       error
     );
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Błąd webhooka Stripe.";
-
     return Response.json(
       {
-        success:
-          false,
-
-        error:
-          message,
+        success: false,
+        error: "Nie udało się przetworzyć zdarzenia płatności.",
       },
-      {
-        status:
-          500,
-      }
+      { status: 500 }
     );
   }
 }
