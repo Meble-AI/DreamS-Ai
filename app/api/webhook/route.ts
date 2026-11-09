@@ -505,23 +505,12 @@ export async function POST(
       error
     );
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Błąd webhooka Stripe.";
-
     return Response.json(
       {
-        success:
-          false,
-
-        error:
-          message,
+        success: false,
+        error: "Nie udało się przetworzyć zdarzenia płatności.",
       },
-      {
-        status:
-          500,
-      }
+      { status: 500 }
     );
   }
 }
