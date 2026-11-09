@@ -1,24 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 type CookieConsent = "necessary" | "all";
 
 const STORAGE_KEY = "dreamsai_cookie_consent";
 
 export default function CookieBanner() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const consent = localStorage.getItem(STORAGE_KEY);
-    if (!consent) setVisible(true);
-  }, []);
+  const consent = useSyncExternalStore(
+    (onStoreChange) => {
+      window.addEventListener("dreamsai-cookie-consent", onStoreChange);
+      return () => window.removeEventListener("dreamsai-cookie-consent", onStoreChange);
+    },
+    () => localStorage.getItem(STORAGE_KEY),
+    () => "necessary"
+  );
+  const visible = consent === null;
 
   function saveConsent(value: CookieConsent) {
     localStorage.setItem(STORAGE_KEY, value);
     localStorage.setItem("dreamsai_cookie_consent_date", new Date().toISOString());
-    setVisible(false);
 
     window.dispatchEvent(
       new CustomEvent("dreamsai-cookie-consent", {
